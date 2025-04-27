@@ -197,7 +197,7 @@ function tmux_utils {
             3)
                 echo -e "${BLUE}Список активных сессий для подключения / List of active sessions to attach:${NC}"
                 tmux list-sessions 2>/dev/null | column -t || echo -e "${YELLOW}Нет активных сессий / No active sessions${NC}"
-                echo -e "${YELLOW}Введите имя или номер сессии для подключения / Enter session name or number to attach:${NC}"
+                echo -e "${YELLOW}Введите имя сессии для подключения / Enter session name to attach:${NC}"
                 read session
                 if [ -n "$session" ] && tmux list-sessions 2>/dev/null | grep -q "$session"; then
                     tmux attach-session -t "$session" && echo -e "${GREEN}Подключено к сессии '$session' / Attached to session '$session'${NC}" || echo -e "${RED}Не удалось подключиться к сессии / Failed to attach to session${NC}"
@@ -629,7 +629,7 @@ function main_menu {
     while true; do
         echo -e "${YELLOW}Выберите действие / Select action:${NC}"
         echo -e "${CYAN}1. Проверка использования CPU / Check CPU usage${NC}"
-        echo -e "${CYAN}2. Проверка свободной памяти / Check available memory${NC}"
+        echo -e "${CYAN}2. Проверка свободной памяти RAM/ Check available memory RAM${NC}"
         echo -e "${CYAN}3. Проверка дискового пространства / Check disk space${NC}"
         echo -e "${CYAN}4. Проверка занятых портов / Check used ports${NC}"
         echo -e "${CYAN}5. Проверка, свободен ли порт / Check if a port is free${NC}"
