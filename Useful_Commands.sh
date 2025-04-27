@@ -1,3 +1,20 @@
+#!/bin/bash
+
+# Цвета текста / Text colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m' # Нет цвета (сброс цвета) / No color (reset)
+
+# Заголовок / Header
+echo -e "${GREEN}"
+cat << "EOF"
+TEST
+EOF
+echo -e "${NC}"
+
 # Проверка свободной памяти и что ее занимает / Check available memory and what is using it
 function check_memory {
     echo -e "${BLUE}Проверка свободной памяти / Checking available memory:${NC}"
