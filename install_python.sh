@@ -16,14 +16,6 @@ fi
 
 echo -e "${GREEN}Установка Python / Installing Python...${NC}"
 
-# Обновление списка пакетов / Update package list
-echo -e "${BLUE}Обновление списка пакетов / Updating package list...${NC}"
-apt update
-
-# Установка зависимостей для сборки Python / Install dependencies for Python
-echo -e "${BLUE}Установка зависимостей для Python / Installing Python dependencies...${NC}"
-apt install -y software-properties-common build-essential zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev libssl-dev libreadline-dev libffi-dev curl libbz2-dev
-
 # Меню выбора версии Python / Python version selection menu
 while true; do
     echo -e "${YELLOW}Выберите версию Python для установки / Select Python version to install:${NC}"
@@ -57,6 +49,14 @@ if command -v "python$PYTHON_VERSION" &> /dev/null; then
     python$PYTHON_VERSION --version
     exit 0
 fi
+
+# Обновление списка пакетов / Update package list
+echo -e "${BLUE}Обновление списка пакетов / Updating package list...${NC}"
+apt update
+
+# Установка зависимостей для сборки Python / Install dependencies for Python
+echo -e "${BLUE}Установка зависимостей для Python / Installing Python dependencies...${NC}"
+apt install -y software-properties-common build-essential zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev libssl-dev libreadline-dev libffi-dev curl libbz2-dev
 
 # Добавление репозитория deadsnakes для установки нужной версии Python / Add deadsnakes PPA
 echo -e "${BLUE}Добавление репозитория deadsnakes / Adding deadsnakes PPA...${NC}"
