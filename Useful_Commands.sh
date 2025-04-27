@@ -11,7 +11,7 @@ NC='\033[0m' # Нет цвета (сброс цвета) / No color (reset)
 # Заголовок / Header
 echo -e "${GREEN}"
 cat << "EOF"
-TEST2
+TEST3
 EOF
 echo -e "${NC}"
 
@@ -290,6 +290,12 @@ function docker_utils {
                         docker ps -a --filter "status=exited" --format "{{.ID}} {{.Names}} {{.Image}} {{.Status}}" | column -t || echo -e "${YELLOW}Нет остановленных контейнеров / No stopped containers${NC}"
                         echo -e "\n${YELLOW}Неиспользуемые (dangling) образы / Unused (dangling) images:${NC}"
                         docker images --filter "dangling=true" --format "{{.ID}} {{.Repository}} {{.Tag}} {{.Size}}" | column -t || echo -e "${YELLOW}Нет неиспользуемых образов / No dangling images${NC}"
+                        echo -e "\n${YELLOW}Неиспользуемые образы с тегами / Unused tagged images:${NC}"
+                        docker images --format "{{.ID}} {{.Repository}} {{.Tag}} {{.Size}}" | while read -r id repo tag size; do
+                            if ! docker ps -a --filter "ancestor=$id" --format "{{.ID}}" | grep -q .; then
+                                echo "$id $repo $tag $size"
+                            fi
+                        done | column -t || echo -e "${YELLOW}Нет неиспользуемых образов с тегами / No unused tagged images${NC}"
                         echo -e "\n${YELLOW}Неиспользуемые сети / Unused networks:${NC}"
                         docker network ls --filter "dangling=true" --format "{{.ID}} {{.Name}} {{.Driver}}" | column -t || echo -e "${YELLOW}Нет неиспользуемых сетей / No unused networks${NC}"
                         echo -e "\n${YELLOW}Внимание: Это удалит все неиспользуемые ресурсы, включая образы с тегами / Warning: This will remove all unused resources, including tagged images.${NC}"
