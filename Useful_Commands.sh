@@ -197,7 +197,13 @@ function docker_utils {
         echo -e "${CYAN}3. Список образов Docker / List Docker images${NC}"
         echo -e "${CYAN}4. Очистка неиспользуемых контейнеров, образов и сетей / Clean up unused containers, images, and networks${NC}"
         echo -e "${CYAN}5. Просмотр логов контейнера / View container logs${NC}"
-        echo -e "${CYAN}6. Вернуться в главное меню / Back to main menu${NC}"
+        echo -e "${CYAN}6. Запуск контейнера / Start a container${NC}"
+        echo -e "${CYAN}7. Остановка контейнера / Stop a container${NC}"
+        echo -e "${CYAN}8. Удаление контейнера / Remove a container${NC}"
+        echo -e "${CYAN}9. Удаление образа / Remove an image${NC}"
+        echo -e "${CYAN}10. Проверка использования ресурсов Docker / Check Docker resource usage${NC}"
+        echo -e "${CYAN}11. Управление Docker Compose / Manage Docker Compose${NC}"
+        echo -e "${CYAN}12. Вернуться в главное меню / Back to main menu${NC}"
         echo -e "${YELLOW}Введите номер действия / Enter choice:${NC} "
         read docker_choice
         case $docker_choice in
@@ -214,11 +220,19 @@ function docker_utils {
                 docker images | column -t
             ;;
             4)
-                echo -e "${YELLOW}Внимание: Это удалит все остановленные контейнеры, неиспользуемые образы и сети / Warning: This will remove all stopped containers, unused images, and networks.${NC}"
+                echo -e "${BLUE}Проверка неиспользуемых ресурсов Docker / Checking unused Docker resources:${NC}"
+                echo -e "${YELLOW}Остановленные контейнеры / Stopped containers:${NC}"
+                docker ps -a --filter "status=exited" --format "{{.ID}} {{.Names}} {{.Image}} {{.Status}}" | column -t || echo -e "${YELLOW}Нет остановленных контейнеров / No stopped containers${NC}"
+                echo -e "\n${YELLOW}Неиспользуемые (dangling) образы / Unused (dangling) images:${NC}"
+                docker images --filter "dangling=true" --format "{{.ID}} {{.Repository}} {{.Tag}} {{.Size}}" | column -t || echo -e "${YELLOW}Нет неиспользуемых образов / No dangling images${NC}"
+                echo -e "\n${YELLOW}Неиспользуемые сети / Unused networks:${NC}"
+                docker network ls --filter "dangling=true" --format "{{.ID}} {{.Name}} {{.Driver}}" | column -t || echo -e "${YELLOW}Нет неиспользуемых сетей / No unused networks${NC}"
+                echo -e "\n${YELLOW}Внимание: Очистка удалит все остановленные контейнеры, неиспользуемые образы и сети / Warning: Cleanup will remove all stopped containers, unused images, and networks.${NC}"
                 echo -e "${YELLOW}Продолжить? (y/n) / Proceed? (y/n)${NC}"
                 read answer
                 if [ "$answer" = "y" ]; then
-                    docker system prune -f
+                    echo -e "${BLUE}Выполняется очистка... / Performing cleanup...${NC}"
+                    docker system prune --force
                     echo -e "${GREEN}Неиспользуемые ресурсы Docker очищены / Unused Docker resources cleaned${NC}"
                 else
                     echo -e "${YELLOW}Очистка отменена / Cleanup cancelled${NC}"
@@ -240,7 +254,137 @@ function docker_utils {
                     echo -e "${YELLOW}ID или имя контейнера не введено / Container ID or name not provided${NC}"
                 fi
             ;;
-            6) break ;;
+            6)
+                echo -e "${BLUE}Список остановленных контейнеров для запуска / List of stopped containers to start:${NC}"
+                docker ps -a --filter "status=exited" --format "{{.ID}} {{.Names}} {{.Image}} {{.Status}}" | column -t
+                echo -e "${YELLOW}Введите ID или имя контейнера для запуска / Enter container ID or name to start:${NC}"
+                read container
+                if [ -n "$container" ]; then
+                    if docker ps -a --filter "status=exited" --format "{{.ID}} {{.Names}}" | grep -q "$container"; then
+                        echo -e "${BLUE}Запуск контейнера $container / Starting container $container:${NC}"
+                        docker start "$container" && echo -e "${GREEN}Контейнер запущен / Container started${NC}" || echo -e "${RED}Не удалось запустить контейнер / Failed to start container${NC}"
+                    else
+                        echo -e "${RED}Остановленный контейнер с ID или именем '$container' не найден / Stopped container with ID or name '$container' not found${NC}"
+                    fi
+                else
+                    echo -e "${YELLOW}ID или имя контейнера не введено / Container ID or name not provided${NC}"
+                fi
+            ;;
+            7)
+                echo -e "${BLUE}Список запущенных контейнеров для остановки / List of running containers to stop:${NC}"
+                docker ps --format "{{.ID}} {{.Names}} {{.Image}} {{.Status}}" | column -t
+                echo -e "${YELLOW}Введите ID или имя контейнера для остановки / Enter container ID or name to stop:${NC}"
+                read container
+                if [ -n "$container" ]; then
+                    if docker ps --format "{{.ID}} {{.Names}}" | grep -q "$container"; then
+                        echo -e "${BLUE}Остановка контейнера $container / Stopping container $container:${NC}"
+                        docker stop "$container" && echo -e "${GREEN}Контейнер остановлен / Container stopped${NC}" || echo -e "${RED}Не удалось остановить контейнер / Failed to stop container${NC}"
+                    else
+                        echo -e "${RED}Запущенный контейнер с ID или именем '$container' не найден / Running container with ID or name '$container' not found${NC}"
+                    fi
+                else
+                    echo -e "${YELLOW}ID или имя контейнера не введено / Container ID or name not provided${NC}"
+                fi
+            ;;
+            8)
+                echo -e "${BLUE}Список всех контейнеров для удаления / List of all containers for removal:${NC}"
+                docker ps -a --format "{{.ID}} {{.Names}} {{.Image}} {{.Status}}" | column -t
+                echo -e "${YELLOW}Введите ID или имя контейнера для удаления / Enter container ID or name to remove:${NC}"
+                read container
+                if [ -n "$container" ]; then
+                    if docker ps -a --format "{{.ID}} {{.Names}}" | grep -q "$container"; then
+                        echo -e "${YELLOW}Внимание: Контейнер будет удален безвозвратно / Warning: Container will be permanently removed.${NC}"
+                        echo -e "${YELLOW}Продолжить? (y/n) / Proceed? (y/n)${NC}"
+                        read answer
+                        if [ "$answer" = "y" ]; then
+                            docker rm -f "$container" && echo -e "${GREEN}Контейнер удален / Container removed${NC}" || echo -e "${RED}Не удалось удалить контейнер / Failed to remove container${NC}"
+                        else
+                            echo -e "${YELLOW}Удаление отменено / Removal cancelled${NC}"
+                        fi
+                    else
+                        echo -e "${RED}Контейнер с ID или именем '$container' не найден / Container with ID or name '$container' not found${NC}"
+                    fi
+                else
+                    echo -e "${YELLOW}ID или имя контейнера не введено / Container ID or name not provided${NC}"
+                fi
+            ;;
+            9)
+                echo -e "${BLUE}Список образов для удаления / List of images for removal:${NC}"
+                docker images --format "{{.ID}} {{.Repository}} {{.Tag}} {{.Size}}" | column -t
+                echo -e "${YELLOW}Введите ID или имя образа (в формате repository:tag) для удаления / Enter image ID or name (in format repository:tag) to remove:${NC}"
+                read image
+                if [ -n "$image" ]; then
+                    if docker images --format "{{.ID}} {{.Repository}}:{{.Tag}}" | grep -q "$image"; then
+                        echo -e "${YELLOW}Внимание: Образ будет удален безвозвратно / Warning: Image will be permanently removed.${NC}"
+                        echo -e "${YELLOW}Продолжить? (y/n) / Proceed? (y/n)${NC}"
+                        read answer
+                        if [ "$answer" = "y" ]; then
+                            docker rmi -f "$image" && echo -e "${GREEN}Образ удален / Image removed${NC}" || echo -e "${RED}Не удалось удалить образ / Failed to remove image${NC}"
+                        else
+                            echo -e "${YELLOW}Удаление отменено / Removal cancelled${NC}"
+                        fi
+                    else
+                        echo -e "${RED}Образ с ID или именем '$image' не найден / Image with ID or name '$image' not found${NC}"
+                    fi
+                else
+                    echo -e "${YELLOW}ID или имя образа не введено / Image ID or name not provided${NC}"
+                fi
+            ;;
+            10)
+                echo -e "${BLUE}Использование ресурсов Docker / Docker resource usage:${NC}"
+                docker system df | column -t
+            ;;
+            11)
+                if ! command -v docker-compose &> /dev/null; then
+                    echo -e "${RED}Docker Compose не установлен / Docker Compose is not installed${NC}"
+                else
+                    echo -e "${YELLOW}Выберите действие для Docker Compose / Select Docker Compose action:${NC}"
+                    echo -e "${CYAN}1. Запустить Compose-проект / Start Compose project${NC}"
+                    echo -e "${CYAN}2. Остановить Compose-проект / Stop Compose project${NC}"
+                    echo -e "${CYAN}3. Просмотреть статус Compose-проекта / View Compose project status${NC}"
+                    echo -e "${YELLOW}Введите номер действия / Enter choice:${NC}"
+                    read compose_choice
+                    case $compose_choice in
+                        1)
+                            echo -e "${YELLOW}Введите путь к файлу docker-compose.yml (или оставьте пустым для текущей директории) / Enter path to docker-compose.yml (or leave empty for current directory):${NC}"
+                            read compose_file
+                            compose_file=${compose_file:-docker-compose.yml}
+                            if [ -f "$compose_file" ]; then
+                                echo -e "${BLUE}Запуск Compose-проекта из $compose_file / Starting Compose project from $compose_file:${NC}"
+                                docker-compose -f "$compose_file" up -d && echo -e "${GREEN}Compose-проект запущен / Compose project started${NC}" || echo -e "${RED}Не удалось запустить Compose-проект / Failed to start Compose project${NC}"
+                            else
+                                echo -e "${RED}Файл $compose_file не найден / File $compose_file not found${NC}"
+                            fi
+                        ;;
+                        2)
+                            echo -e "${YELLOW}Введите путь к файлу docker-compose.yml (или оставьте пустым для текущей директории) / Enter path to docker-compose.yml (or leave empty for current directory):${NC}"
+                            read compose_file
+                            compose_file=${compose_file:-docker-compose.yml}
+                            if [ -f "$compose_file" ]; then
+                                echo -e "${BLUE}Остановка Compose-проекта из $compose_file / Stopping Compose project from $compose_file:${NC}"
+                                docker-compose -f "$compose_file" down && echo -e "${GREEN}Compose-проект остановлен / Compose project stopped${NC}" || echo -e "${RED}Не удалось остановить Compose-проект / Failed to stop Compose project${NC}"
+                            else
+                                echo -e "${RED}Файл $compose_file не найден / File $compose_file not found${NC}"
+                            fi
+                        ;;
+                        3)
+                            echo -e "${YELLOW}Введите путь к файлу docker-compose.yml (или оставьте пустым для текущей директории) / Enter path to docker-compose.yml (or leave empty for current directory):${NC}"
+                            read compose_file
+                            compose_file=${compose_file:-docker-compose.yml}
+                            if [ -f "$compose_file" ]; then
+                                echo -e "${BLUE}Статус Compose-проекта из $compose_file / Status of Compose project from $compose_file:${NC}"
+                                docker-compose -f "$compose_file" ps | column -t
+                            else
+                                echo -e "${RED}Файл $compose_file не найден / File $compose_file not found${NC}"
+                            fi
+                        ;;
+                        *)
+                            echo -e "${RED}Неверный выбор, попробуйте снова / Invalid choice, try again.${NC}"
+                        ;;
+                    esac
+                fi
+            ;;
+            12) break ;;
             *) echo -e "${RED}Неверный выбор, попробуйте снова / Invalid choice, try again.${NC}" ;;
         esac
         echo -e "\n${YELLOW}Нажмите Enter, чтобы продолжить / Press Enter to continue...${NC}"
