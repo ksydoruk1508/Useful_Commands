@@ -84,4 +84,24 @@ else
     fi
 fi
 
+# Установка Node.js и npm / Install Node.js and npm
+if command -v node &> /dev/null; then
+    echo -e "${YELLOW}Node.js уже установлен / Node.js is already installed${NC}"
+    node -v
+    npm -v
+else
+    echo -e "${BLUE}Установка Node.js и npm (версия 20.x) / Installing Node.js and npm (version 20.x)...${NC}"
+    # Добавление репозитория NodeSource для Node.js 20.x
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+    apt update
+    apt install -y nodejs
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}Node.js и npm успешно установлены / Node.js and npm installed successfully${NC}"
+        node -v
+        npm -v
+    else
+        echo -e "${RED}Не удалось установить Node.js и npm / Failed to install Node.js and npm${NC}"
+    fi
+fi
+
 echo -e "${GREEN}Установка утилит завершена / Utility installation completed!${NC}"
