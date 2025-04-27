@@ -11,7 +11,7 @@ NC='\033[0m' # Нет цвета (сброс цвета) / No color (reset)
 # Заголовок / Header
 echo -e "${GREEN}"
 cat << "EOF"
-TEST4
+TEST5
 EOF
 echo -e "${NC}"
 
@@ -197,7 +197,7 @@ function tmux_utils {
             3)
                 echo -e "${BLUE}Список активных сессий для подключения / List of active sessions to attach:${NC}"
                 tmux list-sessions 2>/dev/null | column -t || echo -e "${YELLOW}Нет активных сессий / No active sessions${NC}"
-                echo -e "${YELLOW}Введите имя сессии для подключения / Enter session name to attach:${NC}"
+                echo -e "${YELLOW}Введите имя или номер сессии для подключения / Enter session name or number to attach:${NC}"
                 read session
                 if [ -n "$session" ] && tmux list-sessions 2>/dev/null | grep -q "$session"; then
                     tmux attach-session -t "$session" && echo -e "${GREEN}Подключено к сессии '$session' / Attached to session '$session'${NC}" || echo -e "${RED}Не удалось подключиться к сессии / Failed to attach to session${NC}"
@@ -365,7 +365,22 @@ function docker_utils {
                 if [ -n "$container" ]; then
                     if docker ps -a --format "{{.ID}} {{.Names}}" | grep -q "$container"; then
                         echo -e "${BLUE}Логи контейнера $container / Logs for container $container:${NC}"
-                        docker logs --tail 50 "$container" 2>/dev/null || echo -e "${RED}Не удалось получить логи / Failed to retrieve logs${NC}"
+                        # Проверка драйвера логирования
+                        log_driver=$(docker inspect "$container" --format '{{.HostConfig.LogConfig.Type}}')
+                        echo -e "${YELLOW}Драйвер логирования контейнера / Container logging driver: $log_driver${NC}"
+                        if [ "$log_driver" != "json-file" ] && [ "$log_driver" != "local" ]; then
+                            echo -e "${YELLOW}Предупреждение: Контейнер использует драйвер логирования '$log_driver'. Логи могут быть недоступны через 'docker logs' / Warning: Container uses logging driver '$log_driver'. Logs may not be available via 'docker logs'.${NC}"
+                        fi
+                        # Попытка получения логов
+                        if ! docker logs --tail 50 "$container"; then
+                            echo -e "${RED}Не удалось получить логи / Failed to retrieve logs${NC}"
+                            echo -e "${YELLOW}Возможные причины / Possible reasons:${NC}"
+                            echo -e "- Контейнер не пишет логи в stdout/stderr / Container does not write logs to stdout/stderr."
+                            echo -e "- Недостаточно прав. Попробуйте запустить скрипт с sudo / Insufficient permissions. Try running the script with sudo."
+                            echo -e "- Логи перенаправлены в файл или внешнюю систему логирования / Logs are redirected to a file or external logging system."
+                        else
+                            echo -e "${GREEN}Логи успешно выведены / Logs retrieved successfully${NC}"
+                        fi
                     else
                         echo -e "${RED}Контейнер с ID или именем '$container' не найден / Container with ID or name '$container' not found${NC}"
                     fi
@@ -629,7 +644,7 @@ function main_menu {
     while true; do
         echo -e "${YELLOW}Выберите действие / Select action:${NC}"
         echo -e "${CYAN}1. Проверка использования CPU / Check CPU usage${NC}"
-        echo -e "${CYAN}2. Проверка свободной памяти RAM/ Check available memory RAM${NC}"
+        echo -e "${CYAN}2. Проверка свободной памяти / Check available memory${NC}"
         echo -e "${CYAN}3. Проверка дискового пространства / Check disk space${NC}"
         echo -e "${CYAN}4. Проверка занятых портов / Check used ports${NC}"
         echo -e "${CYAN}5. Проверка, свободен ли порт / Check if a port is free${NC}"
