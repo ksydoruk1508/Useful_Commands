@@ -11,7 +11,7 @@ NC='\033[0m' # Нет цвета (сброс цвета) / No color (reset)
 # Заголовок / Header
 echo -e "${GREEN}"
 cat << "EOF"
-TEST
+TEST2
 EOF
 echo -e "${NC}"
 
@@ -203,7 +203,8 @@ function docker_utils {
         echo -e "${CYAN}9. Удаление образа / Remove an image${NC}"
         echo -e "${CYAN}10. Проверка использования ресурсов Docker / Check Docker resource usage${NC}"
         echo -e "${CYAN}11. Управление Docker Compose / Manage Docker Compose${NC}"
-        echo -e "${CYAN}12. Вернуться в главное меню / Back to main menu${NC}"
+        echo -e "${CYAN}12. Проверка использования образа / Check image usage${NC}"
+        echo -e "${CYAN}13. Вернуться в главное меню / Back to main menu${NC}"
         echo -e "${YELLOW}Введите номер действия / Enter choice:${NC} "
         read docker_choice
         case $docker_choice in
@@ -220,23 +221,94 @@ function docker_utils {
                 docker images | column -t
             ;;
             4)
-                echo -e "${BLUE}Проверка неиспользуемых ресурсов Docker / Checking unused Docker resources:${NC}"
-                echo -e "${YELLOW}Остановленные контейнеры / Stopped containers:${NC}"
-                docker ps -a --filter "status=exited" --format "{{.ID}} {{.Names}} {{.Image}} {{.Status}}" | column -t || echo -e "${YELLOW}Нет остановленных контейнеров / No stopped containers${NC}"
-                echo -e "\n${YELLOW}Неиспользуемые (dangling) образы / Unused (dangling) images:${NC}"
-                docker images --filter "dangling=true" --format "{{.ID}} {{.Repository}} {{.Tag}} {{.Size}}" | column -t || echo -e "${YELLOW}Нет неиспользуемых образов / No dangling images${NC}"
-                echo -e "\n${YELLOW}Неиспользуемые сети / Unused networks:${NC}"
-                docker network ls --filter "dangling=true" --format "{{.ID}} {{.Name}} {{.Driver}}" | column -t || echo -e "${YELLOW}Нет неиспользуемых сетей / No unused networks${NC}"
-                echo -e "\n${YELLOW}Внимание: Очистка удалит все остановленные контейнеры, неиспользуемые образы и сети / Warning: Cleanup will remove all stopped containers, unused images, and networks.${NC}"
-                echo -e "${YELLOW}Продолжить? (y/n) / Proceed? (y/n)${NC}"
-                read answer
-                if [ "$answer" = "y" ]; then
-                    echo -e "${BLUE}Выполняется очистка... / Performing cleanup...${NC}"
-                    docker system prune --force
-                    echo -e "${GREEN}Неиспользуемые ресурсы Docker очищены / Unused Docker resources cleaned${NC}"
-                else
-                    echo -e "${YELLOW}Очистка отменена / Cleanup cancelled${NC}"
-                fi
+                echo -e "${YELLOW}Выберите тип очистки / Select cleanup type:${NC}"
+                echo -e "${CYAN}1. Очистка только 'dangling' образов / Clean only 'dangling' images${NC}"
+                echo -e "${CYAN}2. Очистка всех неиспользуемых образов (включая с тегами) / Clean all unused images (including tagged)${NC}"
+                echo -e "${CYAN}3. Очистка остановленных контейнеров / Clean stopped containers${NC}"
+                echo -e "${CYAN}4. Очистка неиспользуемых сетей / Clean unused networks${NC}"
+                echo -e "${CYAN}5. Полная очистка (все неиспользуемые ресурсы) / Full cleanup (all unused resources)${NC}"
+                echo -e "${CYAN}6. Отмена / Cancel${NC}"
+                echo -e "${YELLOW}Введите номер действия / Enter choice:${NC}"
+                read cleanup_choice
+                case $cleanup_choice in
+                    1)
+                        echo -e "${BLUE}Проверка 'dangling' образов / Checking 'dangling' images:${NC}"
+                        docker images --filter "dangling=true" --format "{{.ID}} {{.Repository}} {{.Tag}} {{.Size}}" | column -t || echo -e "${YELLOW}Нет 'dangling' образов / No 'dangling' images${NC}"
+                        echo -e "\n${YELLOW}Продолжить с очисткой 'dangling' образов? (y/n) / Proceed with cleaning 'dangling' images? (y/n)${NC}"
+                        read answer
+                        if [ "$answer" = "y" ]; then
+                            docker image prune -f
+                            echo -e "${GREEN}'Dangling' образы очищены / 'Dangling' images cleaned${NC}"
+                        else
+                            echo -e "${YELLOW}Очистка отменена / Cleanup cancelled${NC}"
+                        fi
+                    ;;
+                    2)
+                        echo -e "${BLUE}Проверка всех неиспользуемых образов / Checking all unused images:${NC}"
+                        docker images --format "{{.ID}} {{.Repository}} {{.Tag}} {{.Size}}" | while read -r id repo tag size; do
+                            if ! docker ps -a --filter "ancestor=$id" --format "{{.ID}}" | grep -q .; then
+                                echo "$id $repo $tag $size"
+                            fi
+                        done | column -t || echo -e "${YELLOW}Нет неиспользуемых образов / No unused images${NC}"
+                        echo -e "\n${YELLOW}Внимание: Это удалит все образы, не связанные с контейнерами, включая те с тегами / Warning: This will remove all images not used by containers, including tagged ones.${NC}"
+                        echo -e "${YELLOW}Продолжить? (y/n) / Proceed? (y/n)${NC}"
+                        read answer
+                        if [ "$answer" = "y" ]; then
+                            docker image prune -a -f
+                            echo -e "${GREEN}Все неиспользуемые образы очищены / All unused images cleaned${NC}"
+                        else
+                            echo -e "${YELLOW}Очистка отменена / Cleanup cancelled${NC}"
+                        fi
+                    ;;
+                    3)
+                        echo -e "${BLUE}Проверка остановленных контейнеров / Checking stopped containers:${NC}"
+                        docker ps -a --filter "status=exited" --format "{{.ID}} {{.Names}} {{.Image}} {{.Status}}" | column -t || echo -e "${YELLOW}Нет остановленных контейнеров / No stopped containers${NC}"
+                        echo -e "\n${YELLOW}Продолжить с очисткой остановленных контейнеров? (y/n) / Proceed with cleaning stopped containers? (y/n)${NC}"
+                        read answer
+                        if [ "$answer" = "y" ]; then
+                            docker container prune -f
+                            echo -e "${GREEN}Остановленные контейнеры очищены / Stopped containers cleaned${NC}"
+                        else
+                            echo -e "${YELLOW}Очистка отменена / Cleanup cancelled${NC}"
+                        fi
+                    ;;
+                    4)
+                        echo -e "${BLUE}Проверка неиспользуемых сетей / Checking unused networks:${NC}"
+                        docker network ls --filter "dangling=true" --format "{{.ID}} {{.Name}} {{.Driver}}" | column -t || echo -e "${YELLOW}Нет неиспользуемых сетей / No unused networks${NC}"
+                        echo -e "\n${YELLOW}Продолжить с очисткой неиспользуемых сетей? (y/n) / Proceed with cleaning unused networks? (y/n)${NC}"
+                        read answer
+                        if [ "$answer" = "y" ]; then
+                            docker network prune -f
+                            echo -e "${GREEN}Неиспользуемые сети очищены / Unused networks cleaned${NC}"
+                        else
+                            echo -e "${YELLOW}Очистка отменена / Cleanup cancelled${NC}"
+                        fi
+                    ;;
+                    5)
+                        echo -e "${BLUE}Проверка неиспользуемых ресурсов / Checking unused resources:${NC}"
+                        echo -e "${YELLOW}Остановленные контейнеры / Stopped containers:${NC}"
+                        docker ps -a --filter "status=exited" --format "{{.ID}} {{.Names}} {{.Image}} {{.Status}}" | column -t || echo -e "${YELLOW}Нет остановленных контейнеров / No stopped containers${NC}"
+                        echo -e "\n${YELLOW}Неиспользуемые (dangling) образы / Unused (dangling) images:${NC}"
+                        docker images --filter "dangling=true" --format "{{.ID}} {{.Repository}} {{.Tag}} {{.Size}}" | column -t || echo -e "${YELLOW}Нет неиспользуемых образов / No dangling images${NC}"
+                        echo -e "\n${YELLOW}Неиспользуемые сети / Unused networks:${NC}"
+                        docker network ls --filter "dangling=true" --format "{{.ID}} {{.Name}} {{.Driver}}" | column -t || echo -e "${YELLOW}Нет неиспользуемых сетей / No unused networks${NC}"
+                        echo -e "\n${YELLOW}Внимание: Это удалит все неиспользуемые ресурсы, включая образы с тегами / Warning: This will remove all unused resources, including tagged images.${NC}"
+                        echo -e "${YELLOW}Продолжить? (y/n) / Proceed? (y/n)${NC}"
+                        read answer
+                        if [ "$answer" = "y" ]; then
+                            docker system prune --all -f
+                            echo -e "${GREEN}Все неиспользуемые ресурсы очищены / All unused resources cleaned${NC}"
+                        else
+                            echo -e "${YELLOW}Очистка отменена / Cleanup cancelled${NC}"
+                        fi
+                    ;;
+                    6)
+                        echo -e "${YELLOW}Очистка отменена / Cleanup cancelled${NC}"
+                    ;;
+                    *)
+                        echo -e "${RED}Неверный выбор, попробуйте снова / Invalid choice, try again.${NC}"
+                    ;;
+                esac
             ;;
             5)
                 echo -e "${BLUE}Список всех контейнеров для выбора / List of all containers for selection:${NC}"
@@ -384,7 +456,24 @@ function docker_utils {
                     esac
                 fi
             ;;
-            12) break ;;
+            12)
+                echo -e "${BLUE}Список образов для проверки / List of images to check:${NC}"
+                docker images --format "{{.ID}} {{.Repository}} {{.Tag}} {{.Size}}" | column -t
+                echo -e "${YELLOW}Введите ID или имя образа (в формате repository:tag) для проверки / Enter image ID or name (in format repository:tag) to check:${NC}"
+                read image
+                if [ -n "$image" ]; then
+                    if docker images --format "{{.ID}} {{.Repository}}:{{.Tag}}" | grep -q "$image"; then
+                        image_id=$(docker images --filter "reference=$image" --format "{{.ID}}" | head -n 1)
+                        echo -e "${BLUE}Контейнеры, использующие образ $image (ID: $image_id) / Containers using image $image (ID: $image_id):${NC}"
+                        docker ps -a --filter "ancestor=$image_id" --format "{{.ID}} {{.Names}} {{.Image}} {{.Status}}" | column -t || echo -e "${YELLOW}Нет контейнеров, использующих этот образ / No containers using this image${NC}"
+                    else
+                        echo -e "${RED}Образ с ID или именем '$image' не найден / Image with ID or name '$image' not found${NC}"
+                    fi
+                else
+                    echo -e "${YELLOW}ID или имя образа не введено / Image ID or name not provided${NC}"
+                fi
+            ;;
+            13) break ;;
             *) echo -e "${RED}Неверный выбор, попробуйте снова / Invalid choice, try again.${NC}" ;;
         esac
         echo -e "\n${YELLOW}Нажмите Enter, чтобы продолжить / Press Enter to continue...${NC}"
