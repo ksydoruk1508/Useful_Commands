@@ -110,7 +110,30 @@ function check_disk_space {
     echo -e "${YELLOW}Общее использование диска / Overall disk usage:${NC}"
     df -h | column -t
     echo -e "\n${YELLOW}Размеры каталогов в / (отсортированы по убыванию) / Directory sizes in / (sorted by size, largest first):${NC}"
-    sudo du -h --max-depth=1 / 2>/dev/null | sort -hr | head -n 10 | column -t
+    # Сохраняем вывод du для дальнейшего использования
+    du_output=$(sudo du -h --max-depth=1 / 2>/dev/null | sort -hr | head -n 10)
+    echo "$du_output" | column -t
+    # Извлекаем только пути директорий
+    directories=$(echo "$du_output" | awk '{print $2}' | grep -v '^/$')
+    echo -e "\n${YELLOW}Хотите просмотреть содержимое одной из директорий более подробно? (y/n) / Want to view the contents of one of the directories in more detail? (y/n)${NC}"
+    read answer
+    if [ "$answer" = "y" ]; then
+        echo -e "${YELLOW}Выберите директорию для детального анализа / Select a directory for detailed analysis:${NC}"
+        # Пронумеровываем директории
+        echo "$directories" | nl -w2 -s'. '
+        echo -e "${YELLOW}Введите номер директории / Enter directory number:${NC}"
+        read dir_number
+        # Проверяем, что введен корректный номер
+        selected_dir=$(echo "$directories" | sed -n "${dir_number}p")
+        if [ -z "$selected_dir" ] || [ ! -d "$selected_dir" ]; then
+            echo -e "${RED}Неверный выбор или директория недоступна / Invalid choice or directory unavailable${NC}"
+            return
+        fi
+        echo -e "${BLUE}Детальный анализ директории $selected_dir / Detailed analysis of directory $selected_dir:${NC}"
+        sudo du -h --max-depth=1 "$selected_dir" 2>/dev/null | sort -hr | head -n 10 | column -t
+    else
+        echo -e "${YELLOW}Анализ директорий отменен / Directory analysis cancelled${NC}"
+    fi
 }
 
 # Утилиты Docker / Docker utilities
