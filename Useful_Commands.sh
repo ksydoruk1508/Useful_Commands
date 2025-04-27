@@ -1,20 +1,3 @@
-#!/bin/bash
-
-# Цвета текста
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-NC='\033[0m' # Нет цвета (сброс цвета)
-
-# Заголовок
-echo -e "${GREEN}"
-cat << "EOF"
-TEST
-EOF
-echo -e "${NC}"
-
 # Проверка свободной памяти и что ее занимает / Check available memory and what is using it
 function check_memory {
     echo -e "${BLUE}Проверка свободной памяти / Checking available memory:${NC}"
@@ -85,7 +68,7 @@ function check_services {
 }
 
 # Очистка кэша памяти / Clear memory cache
-function clear_memory_cache {
+function check_memory_cache {
     echo -e "${BLUE}Очистка кэша памяти / Clearing memory cache:${NC}"
     echo -e "${YELLOW}Текущее состояние памяти / Current memory status:${NC}"
     free -h
@@ -104,33 +87,81 @@ function clear_memory_cache {
     fi
 }
 
+# Анализ директории (вспомогательная функция для рекурсивного анализа)
+function analyze_directory {
+    local dir="$1"
+    local root_dirs="$2"
+    echo -e "${BLUE}Детальный анализ директории $dir / Detailed analysis of directory $dir:${NC}"
+    du_output=$(sudo du -h --max-depth=1 "$dir" 2>/dev/null | sort -hr | head -n 10)
+    echo "$du_output" | column -t
+    subdirs=$(echo "$du_output" | awk '{print $2}' | grep -v "^${dir}$")
+    if [ -z "$subdirs" ]; then
+        echo -e "${YELLOW}Нет подкаталогов для анализа / No subdirectories to analyze${NC}"
+        return
+    fi
+    echo -e "\n${YELLOW}Выберите действие / Select action:${NC}"
+    echo -e "${CYAN}1. Углубиться в подкаталог / Drill down into a subdirectory${NC}"
+    echo -e "${CYAN}2. Вернуться к списку корневых директорий / Return to root directories list${NC}"
+    echo -e "${CYAN}3. Завершить анализ / Finish analysis${NC}"
+    echo -e "${YELLOW}Введите номер действия / Enter choice:${NC}"
+    read choice
+    case $choice in
+        1)
+            echo -e "${YELLOW}Выберите подкаталог для анализа / Select subdirectory for analysis:${NC}"
+            echo "$subdirs" | nl -w2 -s'. '
+            echo -e "${YELLOW}Введите номер подкаталога / Enter subdirectory number:${NC}"
+            read subdir_number
+            selected_subdir=$(echo "$subdirs" | sed -n "${subdir_number}p")
+            if [ -z "$selected_subdir" ] || [ ! -d "$selected_subdir" ]; then
+                echo -e "${RED}Неверный выбор или подкаталог недоступен / Invalid choice or subdirectory unavailable${NC}"
+                analyze_directory "$dir" "$root_dirs"
+            else
+                analyze_directory "$selected_subdir" "$root_dirs"
+            fi
+            ;;
+        2)
+            echo -e "${YELLOW}Возвращаемся к списку корневых директорий / Returning to root directories list:${NC}"
+            select_root_directory "$root_dirs"
+            ;;
+        3)
+            echo -e "${YELLOW}Анализ завершен / Analysis finished${NC}"
+            ;;
+        *)
+            echo -e "${RED}Неверный выбор, попробуйте снова / Invalid choice, try again.${NC}"
+            analyze_directory "$dir" "$root_dirs"
+            ;;
+    esac
+}
+
+# Выбор корневой директории (вспомогательная функция)
+function select_root_directory {
+    local root_dirs="$1"
+    echo -e "${YELLOW}Выберите директорию для детального анализа / Select a directory for detailed analysis:${NC}"
+    echo "$root_dirs" | nl -w2 -s'. '
+    echo -e "${YELLOW}Введите номер директории / Enter directory number:${NC}"
+    read dir_number
+    selected_dir=$(echo "$root_dirs" | sed -n "${dir_number}p")
+    if [ -z "$selected_dir" ] || [ ! -d "$selected_dir" ]; then
+        echo -e "${RED}Неверный выбор или директория недоступна / Invalid choice or directory unavailable${NC}"
+        select_root_directory "$root_dirs"
+    else
+        analyze_directory "$selected_dir" "$root_dirs"
+    fi
+}
+
 # Проверка дискового пространства / Check disk space
 function check_disk_space {
     echo -e "${BLUE}Проверка дискового пространства / Checking disk space:${NC}"
     echo -e "${YELLOW}Общее использование диска / Overall disk usage:${NC}"
     df -h | column -t
     echo -e "\n${YELLOW}Размеры каталогов в / (отсортированы по убыванию) / Directory sizes in / (sorted by size, largest first):${NC}"
-    # Сохраняем вывод du для дальнейшего использования
     du_output=$(sudo du -h --max-depth=1 / 2>/dev/null | sort -hr | head -n 10)
     echo "$du_output" | column -t
-    # Извлекаем только пути директорий
     directories=$(echo "$du_output" | awk '{print $2}' | grep -v '^/$')
     echo -e "\n${YELLOW}Хотите просмотреть содержимое одной из директорий более подробно? (y/n) / Want to view the contents of one of the directories in more detail? (y/n)${NC}"
     read answer
     if [ "$answer" = "y" ]; then
-        echo -e "${YELLOW}Выберите директорию для детального анализа / Select a directory for detailed analysis:${NC}"
-        # Пронумеровываем директории
-        echo "$directories" | nl -w2 -s'. '
-        echo -e "${YELLOW}Введите номер директории / Enter directory number:${NC}"
-        read dir_number
-        # Проверяем, что введен корректный номер
-        selected_dir=$(echo "$directories" | sed -n "${dir_number}p")
-        if [ -z "$selected_dir" ] || [ ! -d "$selected_dir" ]; then
-            echo -e "${RED}Неверный выбор или директория недоступна / Invalid choice or directory unavailable${NC}"
-            return
-        fi
-        echo -e "${BLUE}Детальный анализ директории $selected_dir / Detailed analysis of directory $selected_dir:${NC}"
-        sudo du -h --max-depth=1 "$selected_dir" 2>/dev/null | sort -hr | head -n 10 | column -t
+        select_root_directory "$directories"
     else
         echo -e "${YELLOW}Анализ директорий отменен / Directory analysis cancelled${NC}"
     fi
@@ -152,7 +183,7 @@ function docker_utils {
         echo -e "${CYAN}6. Вернуться в главное меню / Back to main menu${NC}"
         echo -e "${YELLOW}Введите номер действия / Enter choice:${NC} "
         read docker_choice
-        case $docker_choice in
+        case $choice in
             1)
                 echo -e "${BLUE}Запущенные контейнеры / Running containers:${NC}"
                 docker ps | column -t
@@ -214,7 +245,7 @@ function main_menu {
             5) check_screen_sessions ;;
             6) check_cpu ;;
             7) check_services ;;
-            8) clear_memory_cache ;;
+            8) check_memory_cache ;;
             9) check_disk_space ;;
             10) docker_utils ;;
             11) break ;;
