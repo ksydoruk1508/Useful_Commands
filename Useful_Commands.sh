@@ -85,7 +85,7 @@ function check_services {
 }
 
 # Очистка кэша памяти / Clear memory cache
-function check_memory_cache {
+function clear_memory_cache {
     echo -e "${BLUE}Очистка кэша памяти / Clearing memory cache:${NC}"
     echo -e "${YELLOW}Текущее состояние памяти / Current memory status:${NC}"
     free -h
@@ -196,11 +196,11 @@ function docker_utils {
         echo -e "${CYAN}2. Список всех контейнеров (включая остановленные) / List all containers (including stopped)${NC}"
         echo -e "${CYAN}3. Список образов Docker / List Docker images${NC}"
         echo -e "${CYAN}4. Очистка неиспользуемых контейнеров, образов и сетей / Clean up unused containers, images, and networks${NC}"
-        echo -e "${CYAN}5. Проверка статуса сервиса Docker / Check Docker service status${NC}"
+        echo -e "${CYAN}5. Просмотр логов контейнера / View container logs${NC}"
         echo -e "${CYAN}6. Вернуться в главное меню / Back to main menu${NC}"
         echo -e "${YELLOW}Введите номер действия / Enter choice:${NC} "
         read docker_choice
-        case $choice in
+        case $docker_choice in
             1)
                 echo -e "${BLUE}Запущенные контейнеры / Running containers:${NC}"
                 docker ps | column -t
@@ -225,8 +225,20 @@ function docker_utils {
                 fi
             ;;
             5)
-                echo -e "${BLUE}Статус сервиса Docker / Docker service status:${NC}"
-                systemctl status docker --no-pager
+                echo -e "${BLUE}Список всех контейнеров для выбора / List of all containers for selection:${NC}"
+                docker ps -a --format "{{.ID}} {{.Names}} {{.Image}} {{.Status}}" | column -t
+                echo -e "${YELLOW}Введите ID или имя контейнера для просмотра логов / Enter container ID or name to view logs:${NC}"
+                read container
+                if [ -n "$container" ]; then
+                    if docker ps -a --format "{{.ID}} {{.Names}}" | grep -q "$container"; then
+                        echo -e "${BLUE}Логи контейнера $container / Logs for container $container:${NC}"
+                        docker logs --tail 50 "$container" 2>/dev/null || echo -e "${RED}Не удалось получить логи / Failed to retrieve logs${NC}"
+                    else
+                        echo -e "${RED}Контейнер с ID или именем '$container' не найден / Container with ID or name '$container' not found${NC}"
+                    fi
+                else
+                    echo -e "${YELLOW}ID или имя контейнера не введено / Container ID or name not provided${NC}"
+                fi
             ;;
             6) break ;;
             *) echo -e "${RED}Неверный выбор, попробуйте снова / Invalid choice, try again.${NC}" ;;
@@ -262,7 +274,7 @@ function main_menu {
             5) check_screen_sessions ;;
             6) check_cpu ;;
             7) check_services ;;
-            8) check_memory_cache ;;
+            8) clear_memory_cache ;;
             9) check_disk_space ;;
             10) docker_utils ;;
             11) break ;;
