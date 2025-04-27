@@ -15,14 +15,6 @@ TEST7
 EOF
 echo -e "${NC}"
 
-# Проверка свободной памяти и что ее занимает / Check available memory and what is using it
-function check_memory {
-    echo -e "${BLUE}Проверка свободной памяти / Checking available memory:${NC}"
-    free -h
-    echo -e "\n${BLUE}ТОП-5 процессов по использованию памяти / Top 5 processes by memory usage:${NC}"
-    ps aux --sort=-%mem | head -n 6 | awk '{print $1, $2, $3, $4, $11}' | column -t
-}
-
 # Проверка занятых портов / Check used ports
 function check_used_ports {
     echo -e "${BLUE}Список занятых портов / List of used ports:${NC}"
@@ -650,35 +642,27 @@ function install_software {
         read install_choice
         case $install_choice in
             1)
-                if [ -f "./install_utils.sh" ]; then
-                    echo -e "${BLUE}Скрипт install_utils.sh найден локально / Script install_utils.sh found locally${NC}"
+                echo -e "${YELLOW}Загружаем install_utils.sh с GitHub... / Downloading install_utils.sh from GitHub...${NC}"
+                curl -fsSL https://raw.githubusercontent.com/ksydoruk1508/Useful_Commands/main/install_utils.sh -o install_utils.sh
+                if [ $? -eq 0 ]; then
+                    chmod +x install_utils.sh
+                    echo -e "${GREEN}Скрипт install_utils.sh успешно загружен / Script install_utils.sh downloaded successfully${NC}"
                 else
-                    echo -e "${YELLOW}Скрипт install_utils.sh не найден. Загружаем с GitHub... / Script install_utils.sh not found. Downloading from GitHub...${NC}"
-                    curl -fsSL https://raw.githubusercontent.com/ksydoruk1508/Useful_Commands/main/install_utils.sh -o install_utils.sh
-                    if [ $? -eq 0 ]; then
-                        chmod +x install_utils.sh
-                        echo -e "${GREEN}Скрипт install_utils.sh успешно загружен / Script install_utils.sh downloaded successfully${NC}"
-                    else
-                        echo -e "${RED}Не удалось загрузить install_utils.sh. Пожалуйста, скачайте его вручную по адресу: https://raw.githubusercontent.com/ksydoruk1508/Useful_Commands/main/install_utils.sh / Failed to download install_utils.sh. Please download it manually from: https://raw.githubusercontent.com/ksydoruk1508/Useful_Commands/main/install_utils.sh${NC}"
-                        continue
-                    fi
+                    echo -e "${RED}Не удалось загрузить install_utils.sh. Пожалуйста, скачайте его вручную по адресу: https://raw.githubusercontent.com/ksydoruk1508/Useful_Commands/main/install_utils.sh / Failed to download install_utils.sh. Please download it manually from: https://raw.githubusercontent.com/ksydoruk1508/Useful_Commands/main/install_utils.sh${NC}"
+                    continue
                 fi
                 echo -e "${BLUE}Запуск установки утилит / Starting utility installation...${NC}"
                 sudo bash ./install_utils.sh
             ;;
             2)
-                if [ -f "./install_python.sh" ]; then
-                    echo -e "${BLUE}Скрипт install_python.sh найден локально / Script install_python.sh found locally${NC}"
+                echo -e "${YELLOW}Загружаем install_python.sh с GitHub... / Downloading install_python.sh from GitHub...${NC}"
+                curl -fsSL https://raw.githubusercontent.com/ksydoruk1508/Useful_Commands/main/install_python.sh -o install_python.sh
+                if [ $? -eq 0 ]; then
+                    chmod +x install_python.sh
+                    echo -e "${GREEN}Скрипт install_python.sh успешно загружен / Script install_python.sh downloaded successfully${NC}"
                 else
-                    echo -e "${YELLOW}Скрипт install_python.sh не найден. Загружаем с GitHub... / Script install_python.sh not found. Downloading from GitHub...${NC}"
-                    curl -fsSL https://raw.githubusercontent.com/ksydoruk1508/Useful_Commands/main/install_python.sh -o install_python.sh
-                    if [ $? -eq 0 ]; then
-                        chmod +x install_python.sh
-                        echo -e "${GREEN}Скрипт install_python.sh успешно загружен / Script install_python.sh downloaded successfully${NC}"
-                    else
-                        echo -e "${RED}Не удалось загрузить install_python.sh. Пожалуйста, скачайте его вручную по адресу: https://raw.githubusercontent.com/ksydoruk1508/Useful_Commands/main/install_python.sh / Failed to download install_python.sh. Please download it manually from: https://raw.githubusercontent.com/ksydoruk1508/Useful_Commands/main/install_python.sh${NC}"
-                        continue
-                    fi
+                    echo -e "${RED}Не удалось загрузить install_python.sh. Пожалуйста, скачайте его вручную по адресу: https://raw.githubusercontent.com/ksydoruk1508/Useful_Commands/main/install_python.sh / Failed to download install_python.sh. Please download it manually from: https://raw.githubusercontent.com/ksydoruk1508/Useful_Commands/main/install_python.sh${NC}"
+                    continue
                 fi
                 echo -e "${BLUE}Запуск установки Python / Starting Python installation...${NC}"
                 sudo bash ./install_python.sh
