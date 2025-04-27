@@ -11,7 +11,7 @@ NC='\033[0m' # Нет цвета (сброс цвета) / No color (reset)
 # Заголовок / Header
 echo -e "${GREEN}"
 cat << "EOF"
-TEST5
+TEST6
 EOF
 echo -e "${NC}"
 
@@ -46,26 +46,6 @@ function check_port {
         sudo netstat -tulnp 2>/dev/null | grep ":${port}\b" | column -t || echo -e "${YELLOW}Дополнительная информация недоступна / Additional information unavailable${NC}"
     else
         echo -e "${GREEN}Порт $port свободен / Port $port is free${NC}"
-    fi
-}
-
-# Проверка активных сессий tmux / Check active tmux sessions
-function check_tmux_sessions {
-    echo -e "${BLUE}Список активных сессий tmux / List of active tmux sessions:${NC}"
-    if command -v tmux &> /dev/null; then
-        tmux list-sessions 2>/dev/null || echo -e "${YELLOW}Нет активных сессий tmux / No active tmux sessions${NC}"
-    else
-        echo -e "${RED}tmux не установлен / tmux is not installed${NC}"
-    fi
-}
-
-# Проверка активных сессий screen / Check active screen sessions
-function check_screen_sessions {
-    echo -e "${BLUE}Список активных сессий screen / List of active screen sessions:${NC}"
-    if command -v screen &> /dev/null; then
-        screen -ls 2>/dev/null || echo -e "${YELLOW}Нет активных сессий screen / No active screen sessions${NC}"
-    else
-        echo -e "${RED}screen не установлен / screen is not installed${NC}"
     fi
 }
 
@@ -152,7 +132,8 @@ function analyze_directory {
 
 # Выбор корневой директории (вспомогательная функция)
 function select_root_directory {
-    local root_dirs="$1"
+    local dir="$1"
+    local root_dirs="$2"
     echo -e "${YELLOW}Выберите директорию для детального анализа / Select a directory for detailed analysis:${NC}"
     echo "$root_dirs" | nl -w2 -s'. '
     echo -e "${YELLOW}Введите номер директории / Enter directory number:${NC}"
@@ -184,6 +165,163 @@ function check_disk_space {
     fi
 }
 
+# Утилиты tmux / tmux utilities
+function tmux_utils {
+    if ! command -v tmux &> /dev/null; then
+        echo -e "${RED}tmux не установлен / tmux is not installed${NC}"
+        return
+    fi
+    while true; do
+        echo -e "${YELLOW}Меню утилит tmux / tmux Utilities Menu:${NC}"
+        echo -e "${CYAN}1. Список активных сессий / List active sessions${NC}"
+        echo -e "${CYAN}2. Создать новую сессию / Create new session${NC}"
+        echo -e "${CYAN}3. Подключиться к сессии / Attach to session${NC}"
+        echo -e "${CYAN}4. Завершить сессию / Kill session${NC}"
+        echo -e "${CYAN}5. Очистка завершенных сессий / Clean up detached sessions${NC}"
+        echo -e "${CYAN}6. Вернуться в главное меню / Back to main menu${NC}"
+        echo -e "${YELLOW}Введите номер действия / Enter choice:${NC} "
+        read tmux_choice
+        case $tmux_choice in
+            1)
+                echo -e "${BLUE}Активные сессии tmux / Active tmux sessions:${NC}"
+                tmux list-sessions 2>/dev/null | column -t || echo -e "${YELLOW}Нет активных сессий / No active sessions${NC}"
+            ;;
+            2)
+                echo -e "${YELLOW}Введите имя новой сессии (или оставьте пустым для имени по умолчанию) / Enter name for new session (or leave empty for default):${NC}"
+                read session_name
+                if [ -n "$session_name" ]; then
+                    tmux new-session -s "$session_name" -d && echo -e "${GREEN}Сессия '$session_name' создана / Session '$session_name' created${NC}" || echo -e "${RED}Не удалось создать сессию / Failed to create session${NC}"
+                else
+                    tmux new-session -d && echo -e "${GREEN}Сессия создана / Session created${NC}" || echo -e "${RED}Не удалось создать сессию / Failed to create session${NC}"
+                fi
+            ;;
+            3)
+                echo -e "${BLUE}Список активных сессий для подключения / List of active sessions to attach:${NC}"
+                tmux list-sessions 2>/dev/null | column -t || echo -e "${YELLOW}Нет активных сессий / No active sessions${NC}"
+                echo -e "${YELLOW}Введите имя или номер сессии для подключения / Enter session name or number to attach:${NC}"
+                read session
+                if [ -n "$session" ] && tmux list-sessions 2>/dev/null | grep -q "$session"; then
+                    tmux attach-session -t "$session" && echo -e "${GREEN}Подключено к сессии '$session' / Attached to session '$session'${NC}" || echo -e "${RED}Не удалось подключиться к сессии / Failed to attach to session${NC}"
+                else
+                    echo -e "${RED}Сессия '$session' не найдена или не указана / Session '$session' not found or not specified${NC}"
+                fi
+            ;;
+            4)
+                echo -e "${BLUE}Список активных сессий для завершения / List of active sessions to kill:${NC}"
+                tmux list-sessions 2>/dev/null | column -t || echo -e "${YELLOW}Нет активных сессий / No active sessions${NC}"
+                echo -e "${YELLOW}Введите имя или номер сессии для завершения / Enter session name or number to kill:${NC}"
+                read session
+                if [ -n "$session" ] && tmux list-sessions 2>/dev/null | grep -q "$session"; then
+                    echo -e "${YELLOW}Внимание: Сессия будет завершена безвозвратно / Warning: Session will be permanently terminated.${NC}"
+                    echo -e "${YELLOW}Продолжить? (y/n) / Proceed? (y/n)${NC}"
+                    read answer
+                    if [ "$answer" = "y" ]; then
+                        tmux kill-session -t "$session" && echo -e "${GREEN}Сессия '$session' завершена / Session '$session' killed${NC}" || echo -e "${RED}Не удалось завершить сессию / Failed to kill session${NC}"
+                    else
+                        echo -e "${YELLOW}Завершение отменено / Termination cancelled${NC}"
+                    fi
+                else
+                    echo -e "${RED}Сессия '$session' не найдена или не указана / Session '$session' not found or not specified${NC}"
+                fi
+            ;;
+            5)
+                echo -e "${BLUE}Проверка завершенных (detached) сессий / Checking detached sessions:${NC}"
+                tmux list-sessions 2>/dev/null | grep -v "(attached)" | column -t || echo -e "${YELLOW}Нет завершенных сессий / No detached sessions${NC}"
+                echo -e "\n${YELLOW}Внимание: Это завершит все завершенные (detached) сессии / Warning: This will terminate all detached sessions.${NC}"
+                echo -e "${YELLOW}Продолжить? (y/n) / Proceed? (y/n)${NC}"
+                read answer
+                if [ "$answer" = "y" ]; then
+                    tmux kill-server 2>/dev/null && echo -e "${GREEN}Все завершенные сессии очищены / All detached sessions cleaned${NC}" || echo -e "${YELLOW}Нет сессий для очистки / No sessions to clean${NC}"
+                else
+                    echo -e "${YELLOW}Очистка отменена / Cleanup cancelled${NC}"
+                fi
+            ;;
+            6) break ;;
+            *) echo -e "${RED}Неверный выбор, попробуйте снова / Invalid choice, try again.${NC}" ;;
+        esac
+        echo -e "\n${YELLOW}Нажмите Enter, чтобы продолжить / Press Enter to continue...${NC}"
+        read
+    done
+}
+
+# Утилиты screen / screen utilities
+function screen_utils {
+    if ! command -v screen &> /dev/null; then
+        echo -e "${RED}screen не установлен / screen is not installed${NC}"
+        return
+    fi
+    while true; do
+        echo -e "${YELLOW}Меню утилит screen / screen Utilities Menu:${NC}"
+        echo -e "${CYAN}1. Список активных сессий / List active sessions${NC}"
+        echo -e "${CYAN}2. Создать новую сессию / Create new session${NC}"
+        echo -e "${CYAN}3. Подключиться к сессии / Attach to session${NC}"
+        echo -e "${CYAN}4. Завершить сессию / Kill session${NC}"
+        echo -e "${CYAN}5. Очистка завершенных сессий / Clean up detached sessions${NC}"
+        echo -e "${CYAN}6. Вернуться в главное меню / Back to main menu${NC}"
+        echo -e "${YELLOW}Введите номер действия / Enter choice:${NC} "
+        read screen_choice
+        case $screen_choice in
+            1)
+                echo -e "${BLUE}Активные сессии screen / Active screen sessions:${NC}"
+                screen -ls 2>/dev/null | grep -E '^[[:space:]]*[0-9]+\.' | column -t || echo -e "${YELLOW}Нет активных сессий / No active sessions${NC}"
+            ;;
+            2)
+                echo -e "${YELLOW}Введите имя новой сессии (или оставьте пустым для имени по умолчанию) / Enter name for new session (or leave empty for default):${NC}"
+                read session_name
+                if [ -n "$session_name" ]; then
+                    screen -S "$session_name" -d -m && echo -e "${GREEN}Сессия '$session_name' создана / Session '$session_name' created${NC}" || echo -e "${RED}Не удалось создать сессию / Failed to create session${NC}"
+                else
+                    screen -d -m && echo -e "${GREEN}Сессия создана / Session created${NC}" || echo -e "${RED}Не удалось создать сессию / Failed to create session${NC}"
+                fi
+            ;;
+            3)
+                echo -e "${BLUE}Список активных сессий для подключения / List of active sessions to attach:${NC}"
+                screen -ls 2>/dev/null | grep -E '^[[:space:]]*[0-9]+\.' | column -t || echo -e "${YELLOW}Нет активных сессий / No active sessions${NC}"
+                echo -e "${YELLOW}Введите имя или PID сессии для подключения / Enter session name or PID to attach:${NC}"
+                read session
+                if [ -n "$session" ] && screen -ls 2>/dev/null | grep -q "$session"; then
+                    screen -r "$session" && echo -e "${GREEN}Подключено к сессии '$session' / Attached to session '$session'${NC}" || echo -e "${RED}Не удалось подключиться к сессии / Failed to attach to session${NC}"
+                else
+                    echo -e "${RED}Сессия '$session' не найдена или не указана / Session '$session' not found or not specified${NC}"
+                fi
+            ;;
+            4)
+                echo -e "${BLUE}Список активных сессий для завершения / List of active sessions to kill:${NC}"
+                screen -ls 2>/dev/null | grep -E '^[[:space:]]*[0-9]+\.' | column -t || echo -e "${YELLOW}Нет активных сессий / No active sessions${NC}"
+                echo -e "${YELLOW}Введите имя или PID сессии для завершения / Enter session name or PID to kill:${NC}"
+                read session
+                if [ -n "$session" ] && screen -ls 2>/dev/null | grep -q "$session"; then
+                    echo -e "${YELLOW}Внимание: Сессия будет завершена безвозвратно / Warning: Session will be permanently terminated.${NC}"
+                    echo -e "${YELLOW}Продолжить? (y/n) / Proceed? (y/n)${NC}"
+                    read answer
+                    if [ "$answer" = "y" ]; then
+                        screen -S "$session" -X quit && echo -e "${GREEN}Сессия '$session' завершена / Session '$session' killed${NC}" || echo -e "${RED}Не удалось завершить сессию / Failed to kill session${NC}"
+                    else
+                        echo -e "${YELLOW}Завершение отменено / Termination cancelled${NC}"
+                    fi
+                else
+                    echo -e "${RED}Сессия '$session' не найдена или не указана / Session '$session' not found or not specified${NC}"
+                fi
+            ;;
+            5)
+                echo -e "${BLUE}Проверка завершенных (detached) сессий / Checking detached sessions:${NC}"
+                screen -ls 2>/dev/null | grep -E '^[[:space:]]*[0-9]+\..*Detached' | column -t || echo -e "${YELLOW}Нет завершенных сессий / No detached sessions${NC}"
+                echo -e "\n${YELLOW}Продолжить с очисткой завершенных сессий? (y/n) / Proceed with cleaning detached sessions? (y/n)${NC}"
+                read answer
+                if [ "$answer" = "y" ]; then
+                    screen -wipe 2>/dev/null && echo -e "${GREEN}Завершенные сессии очищены / Detached sessions cleaned${NC}" || echo -e "${YELLOW}Нет сессий для очистки / No sessions to clean${NC}"
+                else
+                    echo -e "${YELLOW}Очистка отменена / Cleanup cancelled${NC}"
+                fi
+            ;;
+            6) break ;;
+            *) echo -e "${RED}Неверный выбор, попробуйте снова / Invalid choice, try again.${NC}" ;;
+        esac
+        echo -e "\n${YELLOW}Нажмите Enter, чтобы продолжить / Press Enter to continue...${NC}"
+        read
+    done
+}
+
 # Утилиты Docker / Docker utilities
 function docker_utils {
     if ! command -v docker &> /dev/null; then
@@ -195,15 +333,16 @@ function docker_utils {
         echo -e "${CYAN}1. Список запущенных контейнеров / List running containers${NC}"
         echo -e "${CYAN}2. Список всех контейнеров (включая остановленные) / List all containers (including stopped)${NC}"
         echo -e "${CYAN}3. Список образов Docker / List Docker images${NC}"
-        echo -e "${CYAN}4. Очистка неиспользуемых контейнеров, образов и сетей / Clean up unused containers, images, and networks${NC}"
-        echo -e "${CYAN}5. Просмотр логов контейнера / View container logs${NC}"
-        echo -e "${CYAN}6. Запуск контейнера / Start a container${NC}"
-        echo -e "${CYAN}7. Остановка контейнера / Stop a container${NC}"
-        echo -e "${CYAN}8. Удаление контейнера / Remove a container${NC}"
-        echo -e "${CYAN}9. Удаление образа / Remove an image${NC}"
-        echo -e "${CYAN}10. Проверка использования ресурсов Docker / Check Docker resource usage${NC}"
-        echo -e "${CYAN}11. Управление Docker Compose / Manage Docker Compose${NC}"
-        echo -e "${CYAN}12. Вернуться в главное меню / Back to main menu${NC}"
+        echo -e "${CYAN}4. Просмотр логов контейнера / View container logs${NC}"
+        echo -e "${CYAN}5. Проверка использования образа / Check image usage${NC}"
+        echo -e "${CYAN}6. Проверка использования ресурсов Docker / Check Docker resource usage${NC}"
+        echo -e "${CYAN}7. Запуск контейнера / Start a container${NC}"
+        echo -e "${CYAN}8. Остановка контейнера / Stop a container${NC}"
+        echo -e "${CYAN}9. Управление Docker Compose / Manage Docker Compose${NC}"
+        echo -e "${CYAN}10. Удаление контейнера / Remove a container${NC}"
+        echo -e "${CYAN}11. Удаление образа / Remove an image${NC}"
+        echo -e "${CYAN}12. Очистка неиспользуемых контейнеров, образов и сетей / Clean up unused containers, images, and networks${NC}"
+        echo -e "${CYAN}13. Вернуться в главное меню / Back to main menu${NC}"
         echo -e "${YELLOW}Введите номер действия / Enter choice:${NC} "
         read docker_choice
         case $docker_choice in
@@ -220,25 +359,6 @@ function docker_utils {
                 docker images | column -t
             ;;
             4)
-                echo -e "${BLUE}Проверка неиспользуемых ресурсов Docker / Checking unused Docker resources:${NC}"
-                echo -e "${YELLOW}Остановленные контейнеры / Stopped containers:${NC}"
-                docker ps -a --filter "status=exited" --format "{{.ID}} {{.Names}} {{.Image}} {{.Status}}" | column -t || echo -e "${YELLOW}Нет остановленных контейнеров / No stopped containers${NC}"
-                echo -e "\n${YELLOW}Неиспользуемые (dangling) образы / Unused (dangling) images:${NC}"
-                docker images --filter "dangling=true" --format "{{.ID}} {{.Repository}} {{.Tag}} {{.Size}}" | column -t || echo -e "${YELLOW}Нет неиспользуемых образов / No dangling images${NC}"
-                echo -e "\n${YELLOW}Неиспользуемые сети / Unused networks:${NC}"
-                docker network ls --filter "dangling=true" --format "{{.ID}} {{.Name}} {{.Driver}}" | column -t || echo -e "${YELLOW}Нет неиспользуемых сетей / No unused networks${NC}"
-                echo -e "\n${YELLOW}Внимание: Очистка удалит все остановленные контейнеры, неиспользуемые образы и сети / Warning: Cleanup will remove all stopped containers, unused images, and networks.${NC}"
-                echo -e "${YELLOW}Продолжить? (y/n) / Proceed? (y/n)${NC}"
-                read answer
-                if [ "$answer" = "y" ]; then
-                    echo -e "${BLUE}Выполняется очистка... / Performing cleanup...${NC}"
-                    docker system prune --force
-                    echo -e "${GREEN}Неиспользуемые ресурсы Docker очищены / Unused Docker resources cleaned${NC}"
-                else
-                    echo -e "${YELLOW}Очистка отменена / Cleanup cancelled${NC}"
-                fi
-            ;;
-            5)
                 echo -e "${BLUE}Список всех контейнеров для выбора / List of all containers for selection:${NC}"
                 docker ps -a --format "{{.ID}} {{.Names}} {{.Image}} {{.Status}}" | column -t
                 echo -e "${YELLOW}Введите ID или имя контейнера для просмотра логов / Enter container ID or name to view logs:${NC}"
@@ -246,7 +366,22 @@ function docker_utils {
                 if [ -n "$container" ]; then
                     if docker ps -a --format "{{.ID}} {{.Names}}" | grep -q "$container"; then
                         echo -e "${BLUE}Логи контейнера $container / Logs for container $container:${NC}"
-                        docker logs --tail 50 "$container" 2>/dev/null || echo -e "${RED}Не удалось получить логи / Failed to retrieve logs${NC}"
+                        # Проверка драйвера логирования
+                        log_driver=$(docker inspect "$container" --format '{{.HostConfig.LogConfig.Type}}')
+                        echo -e "${YELLOW}Драйвер логирования контейнера / Container logging driver: $log_driver${NC}"
+                        if [ "$log_driver" != "json-file" ] && [ "$log_driver" != "local" ]; then
+                            echo -e "${YELLOW}Предупреждение: Контейнер использует драйвер логирования '$log_driver'. Логи могут быть недоступны через 'docker logs' / Warning: Container uses logging driver '$log_driver'. Logs may not be available via 'docker logs'.${NC}"
+                        fi
+                        # Попытка получения логов
+                        if ! docker logs --tail 50 "$container"; then
+                            echo -e "${RED}Не удалось получить логи / Failed to retrieve logs${NC}"
+                            echo -e "${YELLOW}Возможные причины / Possible reasons:${NC}"
+                            echo -e "- Контейнер не пишет логи в stdout/stderr / Container does not write logs to stdout/stderr."
+                            echo -e "- Недостаточно прав. Попробуйте запустить скрипт с sudo / Insufficient permissions. Try running the script with sudo."
+                            echo -e "- Логи перенаправлены в файл или внешнюю систему логирования / Logs are redirected to a file or external logging system."
+                        else
+                            echo -e "${GREEN}Логи успешно выведены / Logs retrieved successfully${NC}"
+                        fi
                     else
                         echo -e "${RED}Контейнер с ID или именем '$container' не найден / Container with ID or name '$container' not found${NC}"
                     fi
@@ -254,7 +389,28 @@ function docker_utils {
                     echo -e "${YELLOW}ID или имя контейнера не введено / Container ID or name not provided${NC}"
                 fi
             ;;
+            5)
+                echo -e "${BLUE}Список образов для проверки / List of images to check:${NC}"
+                docker images --format "{{.ID}} {{.Repository}} {{.Tag}} {{.Size}}" | column -t
+                echo -e "${YELLOW}Введите ID или имя образа (в формате repository:tag) для проверки / Enter image ID or name (in format repository:tag) to check:${NC}"
+                read image
+                if [ -n "$image" ]; then
+                    if docker images --format "{{.ID}} {{.Repository}}:{{.Tag}}" | grep -q "$image"; then
+                        image_id=$(docker images --filter "reference=$image" --format "{{.ID}}" | head -n 1)
+                        echo -e "${BLUE}Контейнеры, использующие образ $image (ID: $image_id) / Containers using image $image (ID: $image_id):${NC}"
+                        docker ps -a --filter "ancestor=$image_id" --format "{{.ID}} {{.Names}} {{.Image}} {{.Status}}" | column -t || echo -e "${YELLOW}Нет контейнеров, использующих этот образ / No containers using this image${NC}"
+                    else
+                        echo -e "${RED}Образ с ID или именем '$image' не найден / Image with ID or name '$image' not found${NC}"
+                    fi
+                else
+                    echo -e "${YELLOW}ID или имя образа не введено / Image ID or name not provided${NC}"
+                fi
+            ;;
             6)
+                echo -e "${BLUE}Использование ресурсов Docker / Docker resource usage:${NC}"
+                docker system df | column -t
+            ;;
+            7)
                 echo -e "${BLUE}Список остановленных контейнеров для запуска / List of stopped containers to start:${NC}"
                 docker ps -a --filter "status=exited" --format "{{.ID}} {{.Names}} {{.Image}} {{.Status}}" | column -t
                 echo -e "${YELLOW}Введите ID или имя контейнера для запуска / Enter container ID or name to start:${NC}"
@@ -270,7 +426,7 @@ function docker_utils {
                     echo -e "${YELLOW}ID или имя контейнера не введено / Container ID or name not provided${NC}"
                 fi
             ;;
-            7)
+            8)
                 echo -e "${BLUE}Список запущенных контейнеров для остановки / List of running containers to stop:${NC}"
                 docker ps --format "{{.ID}} {{.Names}} {{.Image}} {{.Status}}" | column -t
                 echo -e "${YELLOW}Введите ID или имя контейнера для остановки / Enter container ID or name to stop:${NC}"
@@ -286,55 +442,7 @@ function docker_utils {
                     echo -e "${YELLOW}ID или имя контейнера не введено / Container ID or name not provided${NC}"
                 fi
             ;;
-            8)
-                echo -e "${BLUE}Список всех контейнеров для удаления / List of all containers for removal:${NC}"
-                docker ps -a --format "{{.ID}} {{.Names}} {{.Image}} {{.Status}}" | column -t
-                echo -e "${YELLOW}Введите ID или имя контейнера для удаления / Enter container ID or name to remove:${NC}"
-                read container
-                if [ -n "$container" ]; then
-                    if docker ps -a --format "{{.ID}} {{.Names}}" | grep -q "$container"; then
-                        echo -e "${YELLOW}Внимание: Контейнер будет удален безвозвратно / Warning: Container will be permanently removed.${NC}"
-                        echo -e "${YELLOW}Продолжить? (y/n) / Proceed? (y/n)${NC}"
-                        read answer
-                        if [ "$answer" = "y" ]; then
-                            docker rm -f "$container" && echo -e "${GREEN}Контейнер удален / Container removed${NC}" || echo -e "${RED}Не удалось удалить контейнер / Failed to remove container${NC}"
-                        else
-                            echo -e "${YELLOW}Удаление отменено / Removal cancelled${NC}"
-                        fi
-                    else
-                        echo -e "${RED}Контейнер с ID или именем '$container' не найден / Container with ID or name '$container' not found${NC}"
-                    fi
-                else
-                    echo -e "${YELLOW}ID или имя контейнера не введено / Container ID or name not provided${NC}"
-                fi
-            ;;
             9)
-                echo -e "${BLUE}Список образов для удаления / List of images for removal:${NC}"
-                docker images --format "{{.ID}} {{.Repository}} {{.Tag}} {{.Size}}" | column -t
-                echo -e "${YELLOW}Введите ID или имя образа (в формате repository:tag) для удаления / Enter image ID or name (in format repository:tag) to remove:${NC}"
-                read image
-                if [ -n "$image" ]; then
-                    if docker images --format "{{.ID}} {{.Repository}}:{{.Tag}}" | grep -q "$image"; then
-                        echo -e "${YELLOW}Внимание: Образ будет удален безвозвратно / Warning: Image will be permanently removed.${NC}"
-                        echo -e "${YELLOW}Продолжить? (y/n) / Proceed? (y/n)${NC}"
-                        read answer
-                        if [ "$answer" = "y" ]; then
-                            docker rmi -f "$image" && echo -e "${GREEN}Образ удален / Image removed${NC}" || echo -e "${RED}Не удалось удалить образ / Failed to remove image${NC}"
-                        else
-                            echo -e "${YELLOW}Удаление отменено / Removal cancelled${NC}"
-                        fi
-                    else
-                        echo -e "${RED}Образ с ID или именем '$image' не найден / Image with ID or name '$image' not found${NC}"
-                    fi
-                else
-                    echo -e "${YELLOW}ID или имя образа не введено / Image ID or name not provided${NC}"
-                fi
-            ;;
-            10)
-                echo -e "${BLUE}Использование ресурсов Docker / Docker resource usage:${NC}"
-                docker system df | column -t
-            ;;
-            11)
                 if ! command -v docker-compose &> /dev/null; then
                     echo -e "${RED}Docker Compose не установлен / Docker Compose is not installed${NC}"
                 else
@@ -384,7 +492,181 @@ function docker_utils {
                     esac
                 fi
             ;;
-            12) break ;;
+            10)
+                echo -e "${BLUE}Список всех контейнеров для удаления / List of all containers for removal:${NC}"
+                docker ps -a --format "{{.ID}} {{.Names}} {{.Image}} {{.Status}}" | column -t
+                echo -e "${YELLOW}Введите ID или имя контейнера для удаления / Enter container ID or name to remove:${NC}"
+                read container
+                if [ -n "$container" ]; then
+                    if docker ps -a --format "{{.ID}} {{.Names}}" | grep -q "$container"; then
+                        echo -e "${YELLOW}Внимание: Контейнер будет удален безвозвратно / Warning: Container will be permanently removed.${NC}"
+                        echo -e "${YELLOW}Продолжить? (y/n) / Proceed? (y/n)${NC}"
+                        read answer
+                        if [ "$answer" = "y" ]; then
+                            docker rm -f "$container" && echo -e "${GREEN}Контейнер удален / Container removed${NC}" || echo -e "${RED}Не удалось удалить контейнер / Failed to remove container${NC}"
+                        else
+                            echo -e "${YELLOW}Удаление отменено / Removal cancelled${NC}"
+                        fi
+                    else
+                        echo -e "${RED}Контейнер с ID или именем '$container' не найден / Container with ID or name '$container' not found${NC}"
+                    fi
+                else
+                    echo -e "${YELLOW}ID или имя контейнера не введено / Container ID or name not provided${NC}"
+                fi
+            ;;
+            11)
+                echo -e "${BLUE}Список образов для удаления / List of images for removal:${NC}"
+                docker images --format "{{.ID}} {{.Repository}} {{.Tag}} {{.Size}}" | column -t
+                echo -e "${YELLOW}Введите ID или имя образа (в формате repository:tag) для удаления / Enter image ID or name (in format repository:tag) to remove:${NC}"
+                read image
+                if [ -n "$image" ]; then
+                    if docker images --format "{{.ID}} {{.Repository}}:{{.Tag}}" | grep -q "$image"; then
+                        echo -e "${YELLOW}Внимание: Образ будет удален безвозвратно / Warning: Image will be permanently removed.${NC}"
+                        echo -e "${YELLOW}Продолжить? (y/n) / Proceed? (y/n)${NC}"
+                        read answer
+                        if [ "$answer" = "y" ]; then
+                            docker rmi -f "$image" && echo -e "${GREEN}Образ удален / Image removed${NC}" || echo -e "${RED}Не удалось удалить образ / Failed to remove image${NC}"
+                        else
+                            echo -e "${YELLOW}Удаление отменено / Removal cancelled${NC}"
+                        fi
+                    else
+                        echo -e "${RED}Образ с ID или именем '$image' не найден / Image with ID or name '$image' not found${NC}"
+                    fi
+                else
+                    echo -e "${YELLOW}ID или имя образа не введено / Image ID or name not provided${NC}"
+                fi
+            ;;
+            12)
+                echo -e "${YELLOW}Выберите тип очистки / Select cleanup type:${NC}"
+                echo -e "${CYAN}1. Очистка только 'dangling' образов / Clean only 'dangling' images${NC}"
+                echo -e "${CYAN}2. Очистка всех неиспользуемых образов (включая с тегами) / Clean all unused images (including tagged)${NC}"
+                echo -e "${CYAN}3. Очистка остановленных контейнеров / Clean stopped containers${NC}"
+                echo -e "${CYAN}4. Очистка неиспользуемых сетей / Clean unused networks${NC}"
+                echo -e "${CYAN}5. Полная очистка (все неиспользуемые ресурсы) / Full cleanup (all unused resources)${NC}"
+                echo -e "${CYAN}6. Отмена / Cancel${NC}"
+                echo -e "${YELLOW}Введите номер действия / Enter choice:${NC}"
+                read cleanup_choice
+                case $cleanup_choice in
+                    1)
+                        echo -e "${BLUE}Проверка 'dangling' образов / Checking 'dangling' images:${NC}"
+                        docker images --filter "dangling=true" --format "{{.ID}} {{.Repository}} {{.Tag}} {{.Size}}" | column -t || echo -e "${YELLOW}Нет 'dangling' образов / No 'dangling' images${NC}"
+                        echo -e "\n${YELLOW}Продолжить с очисткой 'dangling' образов? (y/n) / Proceed with cleaning 'dangling' images? (y/n)${NC}"
+                        read answer
+                        if [ "$answer" = "y" ]; then
+                            docker image prune -f
+                            echo -e "${GREEN}'Dangling' образы очищены / 'Dangling' images cleaned${NC}"
+                        else
+                            echo -e "${YELLOW}Очистка отменена / Cleanup cancelled${NC}"
+                        fi
+                    ;;
+                    2)
+                        echo -e "${BLUE}Проверка всех неиспользуемых образов / Checking all unused images:${NC}"
+                        docker images --format "{{.ID}} {{.Repository}} {{.Tag}} {{.Size}}" | while read -r id repo tag size; do
+                            if ! docker ps -a --filter "ancestor=$id" --format "{{.ID}}" | grep -q .; then
+                                echo "$id $repo $tag $size"
+                            fi
+                        done | column -t || echo -e "${YELLOW}Нет неиспользуемых образов / No unused images${NC}"
+                        echo -e "\n${YELLOW}Внимание: Это удалит все образы, не связанные с контейнерами, включая те с тегами / Warning: This will remove all images not used by containers, including tagged ones.${NC}"
+                        echo -e "${YELLOW}Продолжить? (y/n) / Proceed? (y/n)${NC}"
+                        read answer
+                        if [ "$answer" = "y" ]; then
+                            docker image prune -a -f
+                            echo -e "${GREEN}Все неиспользуемые образы очищены / All unused images cleaned${NC}"
+                        else
+                            echo -e "${YELLOW}Очистка отменена / Cleanup cancelled${NC}"
+                        fi
+                    ;;
+                    3)
+                        echo -e "${BLUE}Проверка остановленных контейнеров / Checking stopped containers:${NC}"
+                        docker ps -a --filter "status=exited" --format "{{.ID}} {{.Names}} {{.Image}} {{.Status}}" | column -t || echo -e "${YELLOW}Нет остановленных контейнеров / No stopped containers${NC}"
+                        echo -e "\n${YELLOW}Продолжить с очисткой остановленных контейнеров? (y/n) / Proceed with cleaning stopped containers? (y/n)${NC}"
+                        read answer
+                        if [ "$answer" = "y" ]; then
+                            docker container prune -f
+                            echo -e "${GREEN}Остановленные контейнеры очищены / Stopped containers cleaned${NC}"
+                        else
+                            echo -e "${YELLOW}Очистка отменена / Cleanup cancelled${NC}"
+                        fi
+                    ;;
+                    4)
+                        echo -e "${BLUE}Проверка неиспользуемых сетей / Checking unused networks:${NC}"
+                        docker network ls --filter "dangling=true" --format "{{.ID}} {{.Name}} {{.Driver}}" | column -t || echo -e "${YELLOW}Нет неиспользуемых сетей / No unused networks${NC}"
+                        echo -e "\n${YELLOW}Продолжить с очисткой неиспользуемых сетей? (y/n) / Proceed with cleaning unused networks? (y/n)${NC}"
+                        read answer
+                        if [ "$answer" = "y" ]; then
+                            docker network prune -f
+                            echo -e "${GREEN}Неиспользуемые сети очищены / Unused networks cleaned${NC}"
+                        else
+                            echo -e "${YELLOW}Очистка отменена / Cleanup cancelled${NC}"
+                        fi
+                    ;;
+                    5)
+                        echo -e "${BLUE}Проверка неиспользуемых ресурсов / Checking unused resources:${NC}"
+                        echo -e "${YELLOW}Остановленные контейнеры / Stopped containers:${NC}"
+                        docker ps -a --filter "status=exited" --format "{{.ID}} {{.Names}} {{.Image}} {{.Status}}" | column -t || echo -e "${YELLOW}Нет остановленных контейнеров / No stopped containers${NC}"
+                        echo -e "\n${YELLOW}Неиспользуемые (dangling) образы / Unused (dangling) images:${NC}"
+                        docker images --filter "dangling=true" --format "{{.ID}} {{.Repository}} {{.Tag}} {{.Size}}" | column -t || echo -e "${YELLOW}Нет неиспользуемых образов / No dangling images${NC}"
+                        echo -e "\n${YELLOW}Неиспользуемые образы с тегами / Unused tagged images:${NC}"
+                        docker images --format "{{.ID}} {{.Repository}} {{.Tag}} {{.Size}}" | while read -r id repo tag size; do
+                            if ! docker ps -a --filter "ancestor=$id" --format "{{.ID}}" | grep -q .; then
+                                echo "$id $repo $tag $size"
+                            fi
+                        done | column -t || echo -e "${YELLOW}Нет неиспользуемых образов с тегами / No unused tagged images${NC}"
+                        echo -e "\n${YELLOW}Неиспользуемые сети / Unused networks:${NC}"
+                        docker network ls --filter "dangling=true" --format "{{.ID}} {{.Name}} {{.Driver}}" | column -t || echo -e "${YELLOW}Нет неиспользуемых сетей / No unused networks${NC}"
+                        echo -e "\n${YELLOW}Внимание: Это удалит все неиспользуемые ресурсы, включая образы с тегами / Warning: This will remove all unused resources, including tagged images.${NC}"
+                        echo -e "${YELLOW}Продолжить? (y/n) / Proceed? (y/n)${NC}"
+                        read answer
+                        if [ "$answer" = "y" ]; then
+                            docker system prune --all -f
+                            echo -e "${GREEN}Все неиспользуемые ресурсы очищены / All unused resources cleaned${NC}"
+                        else
+                            echo -e "${YELLOW}Очистка отменена / Cleanup cancelled${NC}"
+                        fi
+                    ;;
+                    6)
+                        echo -e "${YELLOW}Очистка отменена / Cleanup cancelled${NC}"
+                    ;;
+                    *)
+                        echo -e "${RED}Неверный выбор, попробуйте снова / Invalid choice, try again.${NC}"
+                    ;;
+                esac
+            ;;
+            13) break ;;
+            *) echo -e "${RED}Неверный выбор, попробуйте снова / Invalid choice, try again.${NC}" ;;
+        esac
+        echo -e "\n${YELLOW}Нажмите Enter, чтобы продолжить / Press Enter to continue...${NC}"
+        read
+    done
+}
+
+# Установка необходимого ПО / Install required software
+function install_software {
+    while true; do
+        echo -e "${YELLOW}Меню установки ПО / Software Installation Menu:${NC}"
+        echo -e "${CYAN}1. Установка необходимых утилит / Install required utilities${NC}"
+        echo -e "${CYAN}2. Установка Python / Install Python${NC}"
+        echo -e "${CYAN}3. Вернуться в главное меню / Back to main menu${NC}"
+        echo -e "${YELLOW}Введите номер действия / Enter choice:${NC} "
+        read install_choice
+        case $install_choice in
+            1)
+                if [ -f "./install_utils.sh" ]; then
+                    echo -e "${BLUE}Запуск установки утилит / Starting utility installation...${NC}"
+                    sudo bash ./install_utils.sh
+                else
+                    echo -e "${RED}Скрипт install_utils.sh не найден / Script install_utils.sh not found${NC}"
+                fi
+            ;;
+            2)
+                if [ -f "./install_python.sh" ]; then
+                    echo -e "${BLUE}Запуск установки Python / Starting Python installation...${NC}"
+                    sudo bash ./install_python.sh
+                else
+                    echo -e "${RED}Скрипт install_python.sh не найден / Script install_python.sh not found${NC}"
+                fi
+            ;;
+            3) break ;;
             *) echo -e "${RED}Неверный выбор, попробуйте снова / Invalid choice, try again.${NC}" ;;
         esac
         echo -e "\n${YELLOW}Нажмите Enter, чтобы продолжить / Press Enter to continue...${NC}"
@@ -396,32 +678,33 @@ function docker_utils {
 function main_menu {
     while true; do
         echo -e "${YELLOW}Выберите действие / Select action:${NC}"
-        echo -e "${CYAN}1. Проверка свободной памяти и что ее занимает / Check available memory and what is using it${NC}"
-        echo -e "${CYAN}2. Проверка занятых портов / Check used ports${NC}"
-        echo -e "${CYAN}3. Проверка, свободен ли порт / Check if a port is free${NC}"
-        echo -e "${CYAN}4. Список активных сессий tmux / List active tmux sessions${NC}"
-        echo -e "${CYAN}5. Список активных сессий screen / List active screen sessions${NC}"
-        echo -e "${CYAN}6. Проверка использования CPU / Check CPU usage${NC}"
-        echo -e "${CYAN}7. Проверка статуса системных служб / Check system services status${NC}"
-        echo -e "${CYAN}8. Очистка кэша памяти / Clear memory cache${NC}"
-        echo -e "${CYAN}9. Проверка дискового пространства / Check disk space${NC}"
+        echo -e "${CYAN}1. Проверка использования CPU / Check CPU usage${NC}"
+        echo -e "${CYAN}2. Проверка свободной памяти / Check available memory${NC}"
+        echo -e "${CYAN}3. Проверка дискового пространства / Check disk space${NC}"
+        echo -e "${CYAN}4. Проверка занятых портов / Check used ports${NC}"
+        echo -e "${CYAN}5. Проверка, свободен ли порт / Check if a port is free${NC}"
+        echo -e "${CYAN}6. Проверка статуса системных служб / Check system services status${NC}"
+        echo -e "${CYAN}7. Управление tmux сессиями / Manage tmux sessions${NC}"
+        echo -e "${CYAN}8. Управление screen сессиями / Manage screen sessions${NC}"
+        echo -e "${CYAN}9. Очистка кэша памяти / Clear memory cache${NC}"
         echo -e "${CYAN}10. Утилиты Docker / Docker utilities${NC}"
-        echo -e "${CYAN}11. Выход / Exit${NC}"
-
+        echo -e "${CYAN}11. Установка необходимого ПО / Install required software${NC}"
+        echo -e "${CYAN}12. Выход / Exit${NC}"
         echo -e "${YELLOW}Введите номер действия / Enter choice:${NC} "
         read choice
         case $choice in
-            1) check_memory ;;
-            2) check_used_ports ;;
-            3) check_port ;;
-            4) check_tmux_sessions ;;
-            5) check_screen_sessions ;;
-            6) check_cpu ;;
-            7) check_services ;;
-            8) clear_memory_cache ;;
-            9) check_disk_space ;;
+            1) check_cpu ;;
+            2) check_memory ;;
+            3) check_disk_space ;;
+            4) check_used_ports ;;
+            5) check_port ;;
+            6) check_services ;;
+            7) tmux_utils ;;
+            8) screen_utils ;;
+            9) clear_memory_cache ;;
             10) docker_utils ;;
-            11) break ;;
+            11) install_software ;;
+            12) break ;;
             *) echo -e "${RED}Неверный выбор, попробуйте снова / Invalid choice, try again.${NC}" ;;
         esac
         echo -e "\n${YELLOW}Нажмите Enter, чтобы продолжить / Press Enter to continue...${NC}"
