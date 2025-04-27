@@ -15,117 +15,173 @@ TEST
 EOF
 echo -e "${NC}"
 
-# Функция проверки свободной памяти и что ее занимает
+# Проверка свободной памяти и что ее занимает / Check available memory and what is using it
 function check_memory {
-    echo -e "${BLUE}Проверка свободной памяти:${NC}"
+    echo -e "${BLUE}Проверка свободной памяти / Checking available memory:${NC}"
     free -h
-    echo -e "\n${BLUE}ТОП-5 процессов по использованию памяти:${NC}"
+    echo -e "\n${BLUE}ТОП-5 процессов по использованию памяти / Top 5 processes by memory usage:${NC}"
     ps aux --sort=-%mem | head -n 6 | awk '{print $1, $2, $3, $4, $11}' | column -t
 }
 
-# Функция проверки занятых портов
+# Проверка занятых портов / Check used ports
 function check_used_ports {
-    echo -e "${BLUE}Список занятых портов:${NC}"
+    echo -e "${BLUE}Список занятых портов / List of used ports:${NC}"
     ss -tuln | column -t
-    echo -e "\n${BLUE}Детали по процессам, использующим порты:${NC}"
-    sudo netstat -tulnp 2>/dev/null | column -t || echo -e "${RED}netstat не установлен, используйте ss${NC}"
+    echo -e "\n${BLUE}Детали по процессам, использующим порты / Details of processes using ports:${NC}"
+    sudo netstat -tulnp 2>/dev/null | column -t || echo -e "${RED}netstat не установлен, используйте ss / netstat is not installed, use ss${NC}"
 }
 
-# Функция проверки, свободен ли конкретный порт
+# Проверка, свободен ли порт / Check if a port is free
 function check_port {
-    echo -e "${BLUE}Проверка статуса порта:${NC}"
-    echo -e "${YELLOW}Введите номер порта для проверки (1-65535):${NC}"
+    echo -e "${BLUE}Проверка статуса порта / Checking port status:${NC}"
+    echo -e "${YELLOW}Введите номер порта для проверки (1-65535) / Enter port number to check (1-65535):${NC}"
     read port
     if [[ ! "$port" =~ ^[0-9]+$ ]] || [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
-        echo -e "${RED}Недопустимый номер порта. Введите число от 1 до 65535.${NC}"
+        echo -e "${RED}Недопустимый номер порта. Введите число от 1 до 65535 / Invalid port number. Enter a number between 1 and 65535.${NC}"
         return
     fi
     if ss -tuln | grep -q ":${port}\b"; then
-        echo -e "${RED}Порт $port занят:${NC}"
+        echo -e "${RED}Порт $port занят / Port $port is in use:${NC}"
         ss -tuln | grep ":${port}\b" | column -t
-        sudo netstat -tulnp 2>/dev/null | grep ":${port}\b" | column -t || echo -e "${YELLOW}Дополнительная информация недоступна${NC}"
+        sudo netstat -tulnp 2>/dev/null | grep ":${port}\b" | column -t || echo -e "${YELLOW}Дополнительная информация недоступна / Additional information unavailable${NC}"
     else
-        echo -e "${GREEN}Порт $port свободен${NC}"
+        echo -e "${GREEN}Порт $port свободен / Port $port is free${NC}"
     fi
 }
 
-# Функция просмотра активных сессий tmux
+# Проверка активных сессий tmux / Check active tmux sessions
 function check_tmux_sessions {
-    echo -e "${BLUE}Список активных сессий tmux:${NC}"
+    echo -e "${BLUE}Список активных сессий tmux / List of active tmux sessions:${NC}"
     if command -v tmux &> /dev/null; then
-        tmux list-sessions 2>/dev/null || echo -e "${YELLOW}Нет активных сессий tmux${NC}"
+        tmux list-sessions 2>/dev/null || echo -e "${YELLOW}Нет активных сессий tmux / No active tmux sessions${NC}"
     else
-        echo -e "${RED}tmux не установлен${NC}"
+        echo -e "${RED}tmux не установлен / tmux is not installed${NC}"
     fi
 }
 
-# Функция просмотра активных сессий screen
+# Проверка активных сессий screen / Check active screen sessions
 function check_screen_sessions {
-    echo -e "${BLUE}Список активных сессий screen:${NC}"
+    echo -e "${BLUE}Список активных сессий screen / List of active screen sessions:${NC}"
     if command -v screen &> /dev/null; then
-        screen -ls 2>/dev/null || echo -e "${YELLOW}Нет активных сессий screen${NC}"
+        screen -ls 2>/dev/null || echo -e "${YELLOW}Нет активных сессий screen / No active screen sessions${NC}"
     else
-        echo -e "${RED}screen не установлен${NC}"
+        echo -e "${RED}screen не установлен / screen is not installed${NC}"
     fi
 }
 
-# Функция проверки использования CPU
+# Проверка использования CPU / Check CPU usage
 function check_cpu {
-    echo -e "${BLUE}ТОП-5 процессов по использованию CPU:${NC}"
+    echo -e "${BLUE}ТОП-5 процессов по использованию CPU / Top 5 processes by CPU usage:${NC}"
     ps aux --sort=-%cpu | head -n 6 | awk '{print $1, $2, $3, $4, $11}' | column -t
-    echo -e "\n${BLUE}Общая загрузка CPU:${NC}"
+    echo -e "\n${BLUE}Общая загрузка CPU / Overall CPU usage:${NC}"
     top -bn1 | head -n 3
 }
 
-# Функция проверки статуса системных служб
+# Проверка статуса системных служб / Check system services status
 function check_services {
-    echo -e "${BLUE}Список активных системных служб:${NC}"
+    echo -e "${BLUE}Список активных системных служб / List of active system services:${NC}"
     systemctl list-units --type=service --state=running | head -n 10
-    echo -e "\n${YELLOW}Для полного списка используйте 'systemctl list-units --type=service'${NC}"
+    echo -e "\n${YELLOW}Для полного списка используйте 'systemctl list-units --type=service' / For a full list, use 'systemctl list-units --type=service'${NC}"
 }
 
-# Функция очистки кэша памяти
+# Очистка кэша памяти / Clear memory cache
 function clear_memory_cache {
-    echo -e "${BLUE}Очистка кэша памяти:${NC}"
-    echo -e "${YELLOW}Текущее состояние памяти:${NC}"
+    echo -e "${BLUE}Очистка кэша памяти / Clearing memory cache:${NC}"
+    echo -e "${YELLOW}Текущее состояние памяти / Current memory status:${NC}"
     free -h
-    echo -e "${YELLOW}Примечание: Колонка 'buff/cache' показывает память, занятую кэшем, которую можно освободить.${NC}"
-    echo -e "${YELLOW}Внимание: Очистка кэша может временно замедлить работу приложений, зависящих от кэшированных данных.${NC}"
-    echo -e "${YELLOW}Требуются права root. Продолжить? (y/n)${NC}"
+    echo -e "${YELLOW}Примечание: Колонка 'buff/cache' показывает память, занятую кэшем, которую можно освободить / Note: The 'buff/cache' column shows memory used by cache, which can be freed.${NC}"
+    echo -e "${YELLOW}Внимание: Очистка кэша может временно замедлить работу приложений, зависящих от кэшированных данных / Warning: Clearing cache may temporarily slow down applications relying on cached data.${NC}"
+    echo -e "${YELLOW}Требуются права root. Продолжить? (y/n) / Root privileges required. Proceed? (y/n)${NC}"
     read answer
     if [ "$answer" = "y" ]; then
         sudo sync
         sudo sysctl -w vm.drop_caches=3
-        echo -e "${GREEN}Кэш памяти очищен${NC}"
-        echo -e "${BLUE}Состояние памяти после очистки:${NC}"
+        echo -e "${GREEN}Кэш памяти очищен / Memory cache cleared${NC}"
+        echo -e "${BLUE}Состояние памяти после очистки / Memory status after clearing:${NC}"
         free -h
     else
-        echo -e "${YELLOW}Очистка отменена${NC}"
+        echo -e "${YELLOW}Очистка отменена / Clearing cancelled${NC}"
     fi
 }
 
-# Функция проверки дискового пространства
+# Проверка дискового пространства / Check disk space
 function check_disk_space {
-    echo -e "${BLUE}Проверка дискового пространства:${NC}"
+    echo -e "${BLUE}Проверка дискового пространства / Checking disk space:${NC}"
+    echo -e "${YELLOW}Общее использование диска / Overall disk usage:${NC}"
     df -h | column -t
+    echo -e "\n${YELLOW}Размеры каталогов в / (отсортированы по убыванию) / Directory sizes in / (sorted by size, largest first):${NC}"
+    sudo du -h --max-depth=1 / 2>/dev/null | sort -hr | head -n 10 | column -t
 }
 
-# Главное меню
+# Утилиты Docker / Docker utilities
+function docker_utils {
+    if ! command -v docker &> /dev/null; then
+        echo -e "${RED}Docker не установлен / Docker is not installed${NC}"
+        return
+    fi
+    while true; do
+        echo -e "${YELLOW}Меню утилит Docker / Docker Utilities Menu:${NC}"
+        echo -e "${CYAN}1. Список запущенных контейнеров / List running containers${NC}"
+        echo -e "${CYAN}2. Список всех контейнеров (включая остановленные) / List all containers (including stopped)${NC}"
+        echo -e "${CYAN}3. Список образов Docker / List Docker images${NC}"
+        echo -e "${CYAN}4. Очистка неиспользуемых контейнеров, образов и сетей / Clean up unused containers, images, and networks${NC}"
+        echo -e "${CYAN}5. Проверка статуса сервиса Docker / Check Docker service status${NC}"
+        echo -e "${CYAN}6. Вернуться в главное меню / Back to main menu${NC}"
+        echo -e "${YELLOW}Введите номер действия / Enter choice:${NC} "
+        read docker_choice
+        case $docker_choice in
+            1)
+                echo -e "${BLUE}Запущенные контейнеры / Running containers:${NC}"
+                docker ps | column -t
+            ;;
+            2)
+                echo -e "${BLUE}Все контейнеры (включая остановленные) / All containers (including stopped):${NC}"
+                docker ps -a | column -t
+            ;;
+            3)
+                echo -e "${BLUE}Образы Docker / Docker images:${NC}"
+                docker images | column -t
+            ;;
+            4)
+                echo -e "${YELLOW}Внимание: Это удалит все остановленные контейнеры, неиспользуемые образы и сети / Warning: This will remove all stopped containers, unused images, and networks.${NC}"
+                echo -e "${YELLOW}Продолжить? (y/n) / Proceed? (y/n)${NC}"
+                read answer
+                if [ "$answer" = "y" ]; then
+                    docker system prune -f
+                    echo -e "${GREEN}Неиспользуемые ресурсы Docker очищены / Unused Docker resources cleaned${NC}"
+                else
+                    echo -e "${YELLOW}Очистка отменена / Cleanup cancelled${NC}"
+                fi
+            ;;
+            5)
+                echo -e "${BLUE}Статус сервиса Docker / Docker service status:${NC}"
+                systemctl status docker --no-pager
+            ;;
+            6) break ;;
+            *) echo -e "${RED}Неверный выбор, попробуйте снова / Invalid choice, try again.${NC}" ;;
+        esac
+        echo -e "\n${YELLOW}Нажмите Enter, чтобы продолжить / Press Enter to continue...${NC}"
+        read
+    done
+}
+
+# Главное меню / Main menu
 function main_menu {
     while true; do
-        echo -e "${YELLOW}Выберите действие:${NC}"
-        echo -e "${CYAN}1. Проверка свободной памяти и что ее занимает${NC}"
-        echo -e "${CYAN}2. Проверка занятых портов${NC}"
-        echo -e "${CYAN}3. Проверить, свободен ли порт${NC}"
-        echo -e "${CYAN}4. Список активных сессий tmux${NC}"
-        echo -e "${CYAN}5. Список активных сессий screen${NC}"
-        echo -e "${CYAN}6. Проверка использования CPU${NC}"
-        echo -e "${CYAN}7. Проверка статуса системных служб${NC}"
-        echo -e "${CYAN}8. Очистка кэша памяти${NC}"
-        echo -e "${CYAN}9. Проверка дискового пространства${NC}"
-        echo -e "${CYAN}10. Выход${NC}"
+        echo -e "${YELLOW}Выберите действие / Select action:${NC}"
+        echo -e "${CYAN}1. Проверка свободной памяти и что ее занимает / Check available memory and what is using it${NC}"
+        echo -e "${CYAN}2. Проверка занятых портов / Check used ports${NC}"
+        echo -e "${CYAN}3. Проверка, свободен ли порт / Check if a port is free${NC}"
+        echo -e "${CYAN}4. Список активных сессий tmux / List active tmux sessions${NC}"
+        echo -e "${CYAN}5. Список активных сессий screen / List active screen sessions${NC}"
+        echo -e "${CYAN}6. Проверка использования CPU / Check CPU usage${NC}"
+        echo -e "${CYAN}7. Проверка статуса системных служб / Check system services status${NC}"
+        echo -e "${CYAN}8. Очистка кэша памяти / Clear memory cache${NC}"
+        echo -e "${CYAN}9. Проверка дискового пространства / Check disk space${NC}"
+        echo -e "${CYAN}10. Утилиты Docker / Docker utilities${NC}"
+        echo -e "${CYAN}11. Выход / Exit${NC}"
 
-        echo -e "${YELLOW}Введите номер действия:${NC} "
+        echo -e "${YELLOW}Введите номер действия / Enter choice:${NC} "
         read choice
         case $choice in
             1) check_memory ;;
@@ -137,10 +193,11 @@ function main_menu {
             7) check_services ;;
             8) clear_memory_cache ;;
             9) check_disk_space ;;
-            10) break ;;
-            *) echo -e "${RED}Неверный выбор, попробуйте снова.${NC}" ;;
+            10) docker_utils ;;
+            11) break ;;
+            *) echo -e "${RED}Неверный выбор, попробуйте снова / Invalid choice, try again.${NC}" ;;
         esac
-        echo -e "\n${YELLOW}Нажмите Enter, чтобы продолжить...${NC}"
+        echo -e "\n${YELLOW}Нажмите Enter, чтобы продолжить / Press Enter to continue...${NC}"
         read
     done
 }
