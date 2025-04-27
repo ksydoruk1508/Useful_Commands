@@ -11,7 +11,7 @@ NC='\033[0m' # Нет цвета (сброс цвета) / No color (reset)
 # Заголовок / Header
 echo -e "${GREEN}"
 cat << "EOF"
-TEST6
+TEST7
 EOF
 echo -e "${NC}"
 
@@ -132,8 +132,7 @@ function analyze_directory {
 
 # Выбор корневой директории (вспомогательная функция)
 function select_root_directory {
-    local dir="$1"
-    local root_dirs="$2"
+    local root_dirs="$1"
     echo -e "${YELLOW}Выберите директорию для детального анализа / Select a directory for detailed analysis:${NC}"
     echo "$root_dirs" | nl -w2 -s'. '
     echo -e "${YELLOW}Введите номер директории / Enter directory number:${NC}"
@@ -201,7 +200,7 @@ function tmux_utils {
                 echo -e "${YELLOW}Введите имя или номер сессии для подключения / Enter session name or number to attach:${NC}"
                 read session
                 if [ -n "$session" ] && tmux list-sessions 2>/dev/null | grep -q "$session"; then
-                    tmux attach-session -t "$session" && echo -e "${GREEN}Подключено к сессии '$session' / Attached to session '$session'${NC}" || echo -e "${RED}Не удалось подключиться к сессии / Failed to attach to session${NC}"
+                    tmux attach-session -t "$session" && echo -e "${GREEN}Подключено к сессии '$session' / Added to session '$session'${NC}" || echo -e "${RED}Не удалось подключиться к сессии / Failed to attach to session${NC}"
                 else
                     echo -e "${RED}Сессия '$session' не найдена или не указана / Session '$session' not found or not specified${NC}"
                 fi
@@ -652,19 +651,37 @@ function install_software {
         case $install_choice in
             1)
                 if [ -f "./install_utils.sh" ]; then
-                    echo -e "${BLUE}Запуск установки утилит / Starting utility installation...${NC}"
-                    sudo bash ./install_utils.sh
+                    echo -e "${BLUE}Скрипт install_utils.sh найден локально / Script install_utils.sh found locally${NC}"
                 else
-                    echo -e "${RED}Скрипт install_utils.sh не найден / Script install_utils.sh not found${NC}"
+                    echo -e "${YELLOW}Скрипт install_utils.sh не найден. Загружаем с GitHub... / Script install_utils.sh not found. Downloading from GitHub...${NC}"
+                    curl -fsSL https://raw.githubusercontent.com/ksydoruk1508/Useful_Commands/main/install_utils.sh -o install_utils.sh
+                    if [ $? -eq 0 ]; then
+                        chmod +x install_utils.sh
+                        echo -e "${GREEN}Скрипт install_utils.sh успешно загружен / Script install_utils.sh downloaded successfully${NC}"
+                    else
+                        echo -e "${RED}Не удалось загрузить install_utils.sh. Пожалуйста, скачайте его вручную по адресу: https://raw.githubusercontent.com/ksydoruk1508/Useful_Commands/main/install_utils.sh / Failed to download install_utils.sh. Please download it manually from: https://raw.githubusercontent.com/ksydoruk1508/Useful_Commands/main/install_utils.sh${NC}"
+                        continue
+                    fi
                 fi
+                echo -e "${BLUE}Запуск установки утилит / Starting utility installation...${NC}"
+                sudo bash ./install_utils.sh
             ;;
             2)
                 if [ -f "./install_python.sh" ]; then
-                    echo -e "${BLUE}Запуск установки Python / Starting Python installation...${NC}"
-                    sudo bash ./install_python.sh
+                    echo -e "${BLUE}Скрипт install_python.sh найден локально / Script install_python.sh found locally${NC}"
                 else
-                    echo -e "${RED}Скрипт install_python.sh не найден / Script install_python.sh not found${NC}"
+                    echo -e "${YELLOW}Скрипт install_python.sh не найден. Загружаем с GitHub... / Script install_python.sh not found. Downloading from GitHub...${NC}"
+                    curl -fsSL https://raw.githubusercontent.com/ksydoruk1508/Useful_Commands/main/install_python.sh -o install_python.sh
+                    if [ $? -eq 0 ]; then
+                        chmod +x install_python.sh
+                        echo -e "${GREEN}Скрипт install_python.sh успешно загружен / Script install_python.sh downloaded successfully${NC}"
+                    else
+                        echo -e "${RED}Не удалось загрузить install_python.sh. Пожалуйста, скачайте его вручную по адресу: https://raw.githubusercontent.com/ksydoruk1508/Useful_Commands/main/install_python.sh / Failed to download install_python.sh. Please download it manually from: https://raw.githubusercontent.com/ksydoruk1508/Useful_Commands/main/install_python.sh${NC}"
+                        continue
+                    fi
                 fi
+                echo -e "${BLUE}Запуск установки Python / Starting Python installation...${NC}"
+                sudo bash ./install_python.sh
             ;;
             3) break ;;
             *) echo -e "${RED}Неверный выбор, попробуйте снова / Invalid choice, try again.${NC}" ;;
