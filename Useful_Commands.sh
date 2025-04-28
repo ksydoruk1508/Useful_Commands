@@ -11,9 +11,17 @@ NC='\033[0m' # Нет цвета (сброс цвета) / No color (reset)
 # Заголовок / Header
 echo -e "${GREEN}"
 cat << "EOF"
-TEST7
+TEST8
 EOF
 echo -e "${NC}"
+
+# Проверка свободной памяти и что ее занимает / Check available memory and what is using it
+function check_memory {
+    echo -e "${BLUE}Проверка свободной памяти / Checking available memory:${NC}"
+    free -h
+    echo -e "\n${BLUE}ТОП-5 процессов по использованию памяти / Top 5 processes by memory usage:${NC}"
+    ps aux --sort=-%mem | head -n 6 | awk '{print $1, $2, $3, $4, $11}' | column -t
+}
 
 # Проверка занятых портов / Check used ports
 function check_used_ports {
@@ -165,7 +173,7 @@ function tmux_utils {
     while true; do
         echo -e "${YELLOW}Меню утилит tmux / tmux Utilities Menu:${NC}"
         echo -e "${CYAN}1. Список активных сессий / List active sessions${NC}"
-        echo -e "${CYAN}2. Создать новую сессию / Create new session${NC}"
+        echo -e "${ GouldCYAN}2. Создать новую сессию / Create new session${NC}"
         echo -e "${CYAN}3. Подключиться к сессии / Attach to session${NC}"
         echo -e "${CYAN}4. Завершить сессию / Kill session${NC}"
         echo -e "${CYAN}5. Очистка завершенных сессий / Clean up detached sessions${NC}"
@@ -675,6 +683,74 @@ function install_software {
     done
 }
 
+# Утилиты поиска / Search utilities
+function search_utils {
+    while true; do
+        echo -e "${YELLOW}Меню поиска / Search Menu:${NC}"
+        echo -e "${CYAN}1. Поиск файла / Search for a file${NC}"
+        echo -e "${CYAN}2. Поиск папки / Search for a directory${NC}"
+        echo -e "${CYAN}3. Вернуться в главное меню / Back to main menu${NC}"
+        echo -e "${YELLOW}Введите номер действия / Enter choice:${NC} "
+        read search_choice
+        case $search_choice in
+            1)
+                echo -e "${YELLOW}Введите имя файла для поиска (поддерживаются шаблоны, например, '*.txt') / Enter file name to search (wildcards supported, e.g., '*.txt'):${NC}"
+                read file_name
+                if [ -z "$file_name" ]; then
+                    echo -e "${RED}Имя файла не указано / File name not specified${NC}"
+                    continue
+                fi
+                echo -e "${YELLOW}Введите начальную директорию для поиска (или оставьте пустым для поиска с корня '/') / Enter starting directory for search (or leave empty to search from root '/'):${NC}"
+                read search_dir
+                search_dir=${search_dir:-/}
+                if [ ! -d "$search_dir" ]; then
+                    echo -e "${RED}Директория $search_dir не существует / Directory $search_dir does not exist${NC}"
+                    continue
+                fi
+                echo -e "${BLUE}Поиск файла '$file_name' в $search_dir... / Searching for file '$file_name' in $search_dir...${NC}"
+                echo -e "${YELLOW}Примечание: Поиск может занять некоторое время. Для поиска в системных директориях могут потребоваться права root / Note: Search may take some time. Root privileges may be required for system directories.${NC}"
+                sudo find "$search_dir" -type f -name "$file_name" 2>/dev/null | while read -r file; do
+                    echo -e "${GREEN}Найден: $file / Found: $file${NC}"
+                done
+                if [ $? -ne 0 ]; then
+                    echo -e "${RED}Ошибка при выполнении поиска / Error during search${NC}"
+                else
+                    echo -e "${BLUE}Поиск файла завершен / File search completed${NC}"
+                fi
+            ;;
+            2)
+                echo -e "${YELLOW}Введите имя папки для поиска (поддерживаются шаблоны, например, 'logs*') / Enter directory name to search (wildcards supported, e.g., 'logs*'):${NC}"
+                read dir_name
+                if [ -z "$dir_name" ]; then
+                    echo -e "${RED}Имя папки не указано / Directory name not specified${NC}"
+                    continue
+                fi
+                echo -e "${YELLOW}Введите начальную директорию для поиска (или оставьте пустым для поиска с корня '/') / Enter starting directory for search (or leave empty to search from root '/'):${NC}"
+                read search_dir
+                search_dir=${search_dir:-/}
+                if [ ! -d "$search_dir" ]; then
+                    echo -e "${RED}Директория $search_dir не существует / Directory $search_dir does not exist${NC}"
+                    continue
+                fi
+                echo -e "${BLUE}Поиск папки '$dir_name' в $search_dir... / Searching for directory '$dir_name' in $search_dir...${NC}"
+                echo -e "${YELLOW}Примечание: Поиск может занять некоторое время. Для поиска в системных директориях могут потребоваться права root / Note: Search may take some time. Root privileges may be required for system directories.${NC}"
+                sudo find "$search_dir" -type d -name "$dir_name" 2>/dev/null | while read -r dir; do
+                    echo -e "${GREEN}Найдена: $dir / Found: $dir${NC}"
+                done
+                if [ $? -ne 0 ]; then
+                    echo -e "${RED}Ошибка при выполнении поиска / Error during search${NC}"
+                else
+                    echo -e "${BLUE}Поиск папки завершен / Directory search completed${NC}"
+                fi
+            ;;
+            3) break ;;
+            *) echo -e "${RED}Неверный выбор, попробуйте снова / Invalid choice, try again.${NC}" ;;
+        esac
+        echo -e "\n${YELLOW}Нажмите Enter, чтобы продолжить / Press Enter to continue...${NC}"
+        read
+    done
+}
+
 # Главное меню / Main menu
 function main_menu {
     while true; do
@@ -690,7 +766,8 @@ function main_menu {
         echo -e "${CYAN}9. Очистка кэша памяти / Clear memory cache${NC}"
         echo -e "${CYAN}10. Утилиты Docker / Docker utilities${NC}"
         echo -e "${CYAN}11. Установка необходимого ПО / Install required software${NC}"
-        echo -e "${CYAN}12. Выход / Exit${NC}"
+        echo -e "${CYAN}12. Поиск файлов и папок / Search files and directories${NC}"
+        echo -e "${CYAN}13. Выход / Exit${NC}"
         echo -e "${YELLOW}Введите номер действия / Enter choice:${NC} "
         read choice
         case $choice in
@@ -705,7 +782,8 @@ function main_menu {
             9) clear_memory_cache ;;
             10) docker_utils ;;
             11) install_software ;;
-            12) break ;;
+            12) search_utils ;;
+            13) break ;;
             *) echo -e "${RED}Неверный выбор, попробуйте снова / Invalid choice, try again.${NC}" ;;
         esac
         echo -e "\n${YELLOW}Нажмите Enter, чтобы продолжить / Press Enter to continue...${NC}"
