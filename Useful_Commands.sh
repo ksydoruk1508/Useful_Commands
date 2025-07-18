@@ -170,41 +170,49 @@ function tmux_utils {
         echo -e "${RED}tmux не установлен / tmux is not installed${NC}"
         return
     fi
+
     while true; do
         echo -e "${YELLOW}Меню утилит tmux / tmux Utilities Menu:${NC}"
         echo -e "${CYAN}1. Список активных сессий / List active sessions${NC}"
-        echo -e "${ GouldCYAN}2. Создать новую сессию / Create new session${NC}"
+        echo -e "${CYAN}2. Создать новую сессию / Create new session${NC}"
         echo -e "${CYAN}3. Подключиться к сессии / Attach to session${NC}"
         echo -e "${CYAN}4. Завершить сессию / Kill session${NC}"
         echo -e "${CYAN}5. Очистка завершенных сессий / Clean up detached sessions${NC}"
         echo -e "${CYAN}6. Вернуться в главное меню / Back to main menu${NC}"
-        echo -e "${YELLOW}Введите номер действия / Enter choice:${NC} "
+        echo -ne "${YELLOW}Введите номер действия / Enter choice:${NC} "
         read tmux_choice
+
         case $tmux_choice in
             1)
                 echo -e "${BLUE}Активные сессии tmux / Active tmux sessions:${NC}"
                 tmux list-sessions 2>/dev/null | column -t || echo -e "${YELLOW}Нет активных сессий / No active sessions${NC}"
-            ;;
+                ;;
             2)
                 echo -e "${YELLOW}Введите имя новой сессии (или оставьте пустым для имени по умолчанию) / Enter name for new session (or leave empty for default):${NC}"
                 read session_name
                 if [ -n "$session_name" ]; then
-                    tmux new-session -s "$session_name" -d && echo -e "${GREEN}Сессия '$session_name' создана / Session '$session_name' created${NC}" || echo -e "${RED}Не удалось создать сессию / Failed to create session${NC}"
+                    tmux new-session -s "$session_name" -d && \
+                        echo -e "${GREEN}Сессия '$session_name' создана / Session '$session_name' created${NC}" || \
+                        echo -e "${RED}Не удалось создать сессию / Failed to create session${NC}"
                 else
-                    tmux new-session -d && echo -e "${GREEN}Сессия создана / Session created${NC}" || echo -e "${RED}Не удалось создать сессию / Failed to create session${NC}"
+                    tmux new-session -d && \
+                        echo -e "${GREEN}Сессия создана / Session created${NC}" || \
+                        echo -e "${RED}Не удалось создать сессию / Failed to create session${NC}"
                 fi
-            ;;
+                ;;
             3)
                 echo -e "${BLUE}Список активных сессий для подключения / List of active sessions to attach:${NC}"
                 tmux list-sessions 2>/dev/null | column -t || echo -e "${YELLOW}Нет активных сессий / No active sessions${NC}"
                 echo -e "${YELLOW}Введите имя или номер сессии для подключения / Enter session name or number to attach:${NC}"
                 read session
                 if [ -n "$session" ] && tmux list-sessions 2>/dev/null | grep -q "$session"; then
-                    tmux attach-session -t "$session" && echo -e "${GREEN}Подключено к сессии '$session' / Added to session '$session'${NC}" || echo -e "${RED}Не удалось подключиться к сессии / Failed to attach to session${NC}"
+                    tmux attach-session -t "$session" && \
+                        echo -e "${GREEN}Подключено к сессии '$session' / Attached to session '$session'${NC}" || \
+                        echo -e "${RED}Не удалось подключиться к сессии / Failed to attach to session${NC}"
                 else
                     echo -e "${RED}Сессия '$session' не найдена или не указана / Session '$session' not found or not specified${NC}"
                 fi
-            ;;
+                ;;
             4)
                 echo -e "${BLUE}Список активных сессий для завершения / List of active sessions to kill:${NC}"
                 tmux list-sessions 2>/dev/null | column -t || echo -e "${YELLOW}Нет активных сессий / No active sessions${NC}"
@@ -215,14 +223,16 @@ function tmux_utils {
                     echo -e "${YELLOW}Продолжить? (y/n) / Proceed? (y/n)${NC}"
                     read answer
                     if [ "$answer" = "y" ]; then
-                        tmux kill-session -t "$session" && echo -e "${GREEN}Сессия '$session' завершена / Session '$session' killed${NC}" || echo -e "${RED}Не удалось завершить сессию / Failed to kill session${NC}"
+                        tmux kill-session -t "$session" && \
+                            echo -e "${GREEN}Сессия '$session' завершена / Session '$session' killed${NC}" || \
+                            echo -e "${RED}Не удалось завершить сессию / Failed to kill session${NC}"
                     else
                         echo -e "${YELLOW}Завершение отменено / Termination cancelled${NC}"
                     fi
                 else
                     echo -e "${RED}Сессия '$session' не найдена или не указана / Session '$session' not found or not specified${NC}"
                 fi
-            ;;
+                ;;
             5)
                 echo -e "${BLUE}Проверка завершенных (detached) сессий / Checking detached sessions:${NC}"
                 tmux list-sessions 2>/dev/null | grep -v "(attached)" | column -t || echo -e "${YELLOW}Нет завершенных сессий / No detached sessions${NC}"
@@ -230,13 +240,20 @@ function tmux_utils {
                 echo -e "${YELLOW}Продолжить? (y/n) / Proceed? (y/n)${NC}"
                 read answer
                 if [ "$answer" = "y" ]; then
-                    tmux kill-server 2>/dev/null && echo -e "${GREEN}Все завершенные сессии очищены / All detached sessions cleaned${NC}" || echo -e "${YELLOW}Нет сессий для очистки / No sessions to clean${NC}"
+                    tmux list-sessions 2>/dev/null | grep -v "(attached)" | cut -d: -f1 | while read detached_session; do
+                        tmux kill-session -t "$detached_session"
+                    done
+                    echo -e "${GREEN}Все завершенные сессии очищены / All detached sessions cleaned${NC}"
                 else
                     echo -e "${YELLOW}Очистка отменена / Cleanup cancelled${NC}"
                 fi
-            ;;
-            6) break ;;
-            *) echo -e "${RED}Неверный выбор, попробуйте снова / Invalid choice, try again.${NC}" ;;
+                ;;
+            6)
+                break
+                ;;
+            *)
+                echo -e "${RED}Неверный выбор, попробуйте снова / Invalid choice, try again.${NC}"
+                ;;
         esac
         echo -e "\n${YELLOW}Нажмите Enter, чтобы продолжить / Press Enter to continue...${NC}"
         read
@@ -756,7 +773,7 @@ function main_menu {
     while true; do
         echo -e "${YELLOW}Выберите действие / Select action:${NC}"
         echo -e "${CYAN}1. Проверка использования CPU / Check CPU usage${NC}"
-        echo -e "${CYAN}2. Проверка свободной памяти / Check available memory${NC}"
+        echo -e "${CYAN}2. Проверка памяти RAM / Check RAM memory${NC}"
         echo -e "${CYAN}3. Проверка дискового пространства / Check disk space${NC}"
         echo -e "${CYAN}4. Проверка занятых портов / Check used ports${NC}"
         echo -e "${CYAN}5. Проверка, свободен ли порт / Check if a port is free${NC}"
