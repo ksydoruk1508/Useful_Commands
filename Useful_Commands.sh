@@ -791,6 +791,18 @@ function search_utils {
     done
 }
 
+function install_desktop {
+    echo -e "${BLUE}Загрузка и установка рабочего стола XFCE + XRDP + Chrome...${NC}"
+    curl -fsSL https://raw.githubusercontent.com/ksydoruk1508/Useful_Commands/main/install_XFCE_XRDP_Google_Chrome.sh -o install_desktop.sh
+    if [ $? -eq 0 ]; then
+        chmod +x install_desktop.sh
+        sudo bash ./install_desktop.sh
+        echo -e "${GREEN}Установка рабочего стола завершена!${NC}"
+    else
+        echo -e "${RED}Не удалось загрузить скрипт установки. Проверьте подключение к интернету.${NC}"
+    fi
+}
+
 # Главное меню / Main menu
 function main_menu {
     while true; do
@@ -807,7 +819,8 @@ function main_menu {
         echo -e "${CYAN}10. Утилиты Docker / Docker utilities${NC}"
         echo -e "${CYAN}11. Установка необходимого ПО / Install required software${NC}"
         echo -e "${CYAN}12. Поиск файлов и папок / Search files and directories${NC}"
-        echo -e "${CYAN}13. Выход / Exit${NC}"
+        echo -e "${CYAN}13. Установка рабочего стола / Install desktop environment${NC}"
+        echo -e "${CYAN}0. Выход / Exit${NC}"
         echo -e "${YELLOW}Введите номер действия / Enter choice:${NC} "
         read choice
         case $choice in
@@ -823,7 +836,8 @@ function main_menu {
             10) docker_utils ;;
             11) install_software ;;
             12) search_utils ;;
-            13) break ;;
+            13) install_desktop ;;
+            0) break ;;
             *) echo -e "${RED}Неверный выбор, попробуйте снова / Invalid choice, try again.${NC}" ;;
         esac
         echo -e "\n${YELLOW}Нажмите Enter, чтобы продолжить / Press Enter to continue...${NC}"
