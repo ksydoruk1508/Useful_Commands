@@ -4,7 +4,7 @@
 
 set -e
 
-echo "=== Настройка прокси-сервера 3proxy 4==="
+echo "=== Настройка прокси-сервера 3proxy 5==="
 
 # Проверка прав доступа
 if [[ $EUID -ne 0 ]]; then
@@ -44,15 +44,26 @@ wget https://github.com/z3APA3A/3proxy/archive/refs/tags/0.9.3.zip
 unzip 0.9.3.zip
 cd 3proxy-0.9.3
 
-# Проверяем наличие Makefile.Linux
-echo "Проверка файлов Makefile..."
-ls -la Makefile*
-
 # Компиляция с правильным подходом
 echo "Компиляция 3proxy..."
-# Переходим в директорию src и компилируем
-cd src
-make -f Makefile.Linux
+# Проверяем, что Makefile.Linux существует
+if [ -f "Makefile.Linux" ]; then
+    echo "Файл Makefile.Linux найден в корневой директории"
+    # Выполняем make в корневой директории
+    make -f Makefile.Linux
+else
+    echo "Makefile.Linux не найден в корневой директории"
+    # Проверяем в src
+    if [ -f "src/Makefile.Linux" ]; then
+        echo "Файл Makefile.Linux найден в src"
+        cd src
+        make -f Makefile.Linux
+        cd ..
+    else
+        echo "Ошибка: Makefile.Linux не найден ни в одной директории"
+        exit 1
+    fi
+fi
 
 # Проверка наличия исполняемого файла
 if [ ! -f 3proxy ]; then
@@ -60,9 +71,9 @@ if [ ! -f 3proxy ]; then
     exit 1
 fi
 
-# Возвращаемся в корневую директорию и копируем файл
-cd ..
-cp src/3proxy /usr/local/bin/
+# Установка в систему
+echo "Установка 3proxy..."
+cp 3proxy /usr/local/bin/
 chmod +x /usr/local/bin/3proxy
 
 # Создание директории конфигурации
