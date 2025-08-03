@@ -33,23 +33,21 @@ echo "Password: $PASS"
 echo "Обновление системы..."
 apt update && apt upgrade -y
 
-# Установка необходимых пакетов
+# Установка необходимых пакетов и зависимостей для сборки 3proxy
 echo "Установка зависимостей..."
-apt install -y build-essential wget unzip
+apt install -y build-essential wget unzip libssl-dev libpthread-stubs0-dev libc6-dev
 
 # Загрузка и компиляция 3proxy
 echo "Загрузка и компиляция 3proxy..."
 cd /tmp
-wget https://github.com/z3APA3A/3proxy/archive/refs/tags/0.9.3.zip
-unzip 0.9.3.zip
+wget https://github.com/z3APA3A/3proxy/archive/refs/tags/0.9.3.zip -O 3proxy.zip
+unzip -o 3proxy.zip
 cd 3proxy-0.9.3
 
 # Компиляция с правильным подходом
 echo "Компиляция 3proxy..."
-# Проверяем, что Makefile.Linux существует
 if [ -f "Makefile.Linux" ]; then
     echo "Файл Makefile.Linux найден в корневой директории"
-    # Выполняем make в корневой директории
     make -f Makefile.Linux
 else
     echo "Makefile.Linux не найден в корневой директории"
@@ -59,7 +57,6 @@ fi
 # Проверка наличия исполняемого файла в правильной директории
 if [ ! -f src/3proxy ]; then
     echo "Ошибка: не удалось скомпилировать 3proxy"
-    # Показываем содержимое директории src для диагностики
     echo "Содержимое директории src:"
     ls -la src/
     exit 1
@@ -76,7 +73,7 @@ mkdir -p /etc/3proxy
 
 # Создание пользователя для 3proxy
 echo "Создание пользователя 3proxy..."
-useradd -r -s /bin/false proxy3
+useradd -r -s /bin/false proxy3 || true
 
 # Создание конфигурационного файла с заданными параметрами
 echo "Создание конфигурационного файла..."
@@ -120,7 +117,7 @@ systemctl start 3proxy
 
 # Открытие портов в фаерволе
 echo "Настройка фаервола..."
-ufw allow $PORT/tcp
+ufw allow $PORT/tcp || true
 
 # Вывод информации о настройке
 echo ""
@@ -137,4 +134,4 @@ echo ""
 echo "Для просмотра логов:"
 echo "journalctl -u 3proxy -f"
 echo ""
-echo "Для изменения параметров edit /etc/3proxy/3proxy.cfg and systemctl restart 3proxy"
+echo "Для изменения параметров редактируйте /etc/3proxy/3proxy.cfg и перезапустите systemctl restart 3proxy"
