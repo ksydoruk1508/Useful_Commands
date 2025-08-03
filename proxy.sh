@@ -44,13 +44,22 @@ wget https://github.com/z3APA3A/3proxy/archive/refs/tags/0.9.3.zip
 unzip 0.9.3.zip
 cd 3proxy-0.9.3
 
-# Компиляция с правильным Makefile
+# Компиляция с правильным подходом
 echo "Компиляция 3proxy..."
 make -f Makefile.Linux
 
 # Проверка наличия исполняемого файла
 if [ ! -f 3proxy ]; then
     echo "Ошибка: не удалось скомпилировать 3proxy"
+    # Попробуем другой способ компиляции
+    cd src
+    make -f Makefile.Linux
+    cd ..
+fi
+
+# Проверяем снова
+if [ ! -f 3proxy ]; then
+    echo "Ошибка: не удалось скомпилировать 3proxy даже после второго попытки"
     exit 1
 fi
 
