@@ -10,7 +10,6 @@ HTTP_PORT=53131
 LOGIN="user"
 PASS="P@ssv0rd"
 
-# Цвета для вывода
 CYAN='\033[0;36m'
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
@@ -53,8 +52,8 @@ function install_proxy() {
         echo -e "${CYAN}[*] Скачивание и установка 3proxy...${NC}"
         wget -qO- https://github.com/z3APA3A/3proxy/archive/refs/tags/0.9.3.tar.gz | tar xz
         cd 3proxy-0.9.3
-        make -C src -f Makefile.Linux
-        sudo cp bin/3proxy $PROXY_BIN
+        make -C src
+        sudo cp src/3proxy $PROXY_BIN
         sudo chown $PROXY_USER:$PROXY_GROUP $PROXY_BIN
         sudo chmod 755 $PROXY_BIN
         cd ..
