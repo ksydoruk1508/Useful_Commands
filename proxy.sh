@@ -1,72 +1,85 @@
 #!/bin/bash
 
-PURPLE='\033[0;35m'
-NC='\033[0m'
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-CYAN='\033[0;36m'
-YELLOW='\033[0;33m'
-
 PROXY_USER="proxy3"
 PROXY_GROUP="proxy3"
+PROXY_DIR="/etc/3proxy"
+PROXY_CFG="$PROXY_DIR/3proxy.cfg"
 PROXY_BIN="/usr/local/bin/3proxy"
-PROXY_CFG="/etc/3proxy/3proxy.cfg"
-PROXY_SERVICE="/etc/systemd/system/3proxy.service"
-PROXY_LOG_DIR="/var/log/3proxy"
-PROXY_LOG="$PROXY_LOG_DIR/3proxy.log"
+SOCKS_PORT=53132
+HTTP_PORT=53131
+LOGIN="user"
+PASS="P@ssv0rd"
 
-show_header() {
-    echo -e "${PURPLE}"
-    cat << EOF
+# Цвета для вывода
+CYAN='\033[0;36m'
+GREEN='\033[0;32m'
+NC='\033[0m' # No Color
+
+function print_logo() {
+cat << "EOF"
  ____  ____                                      
-|  _ \\|  _ \\ _ __ _____  ___   _                 
-| |_) | |_) | '__/ _ \\ \\/ / | | |                
+|  _ \|  _ \ _ __ _____  ___   _                 
+| |_) | |_) | '__/ _ \ \/ / | | |                
 |  __/|  __/| | | (_) >  <| |_| |                
-|_|   |_|   |_|  \\___/_/\\_\\\\__,_|               
+|_|   |_|   |_|  \___/_/\_\\__,_|               
 
-          3proxy Quick Installer by c6zr7
+        3proxy Quick Installer by c6zr7
 EOF
-    echo -e "${NC}"
 }
 
-install_proxy() {
+function pause() {
+    read -p "Нажмите Enter для продолжения..."
+}
+
+function create_user_and_dirs() {
     echo -e "${CYAN}[*] Проверка пользователя $PROXY_USER...${NC}"
-    id $PROXY_USER &>/dev/null || sudo useradd -r -M -d /nonexistent -s /usr/sbin/nologin $PROXY_USER
+    if ! id $PROXY_USER &>/dev/null; then
+        sudo useradd -r -s /usr/sbin/nologin $PROXY_USER
+    fi
 
     echo -e "${CYAN}[*] Создание директорий и выдача прав...${NC}"
-    sudo mkdir -p $(dirname $PROXY_CFG)
-    sudo mkdir -p $PROXY_LOG_DIR
-    sudo chown $PROXY_USER:$PROXY_GROUP $PROXY_LOG_DIR
-    sudo chmod 750 $PROXY_LOG_DIR
+    sudo mkdir -p $PROXY_DIR
+    sudo chown -R $PROXY_USER:$PROXY_GROUP $PROXY_DIR
+    sudo chmod 750 $PROXY_DIR
+}
+
+function install_proxy() {
+    print_logo
+    echo -e "${CYAN}Запускается установка/переустановка 3Proxy...${NC}"
+
+    create_user_and_dirs
 
     if [ ! -f $PROXY_BIN ]; then
         echo -e "${CYAN}[*] Скачивание и установка 3proxy...${NC}"
         wget -qO- https://github.com/z3APA3A/3proxy/archive/refs/tags/0.9.3.tar.gz | tar xz
-        cd 3proxy-0.9.3/src
-        make -f Makefile.Linux
-        sudo cp 3proxy $PROXY_BIN
-        cd ../..
+        cd 3proxy-0.9.3
+        make -C src -f Makefile.Linux
+        sudo cp bin/3proxy $PROXY_BIN
+        sudo chown $PROXY_USER:$PROXY_GROUP $PROXY_BIN
+        sudo chmod 755 $PROXY_BIN
+        cd ..
         rm -rf 3proxy-0.9.3
     fi
-    sudo chown $PROXY_USER:$PROXY_GROUP $PROXY_BIN
-    sudo chmod 750 $PROXY_BIN
 
     echo -e "${CYAN}[*] Создание конфига 3proxy...${NC}"
-    sudo tee $PROXY_CFG >/dev/null <<EOF
-nscache 65536
+    cat <<EOF | sudo tee $PROXY_CFG > /dev/null
 daemon
-log $PROXY_LOG D
-rotate 3
-users user:CL:P@ssv0rd
+maxconn 2000
+nscache 65536
+timeouts 1 5 30 60 180 1800 15 60
+setgid $PROXY_GROUP
+setuid $PROXY_USER
 auth strong
-socks -p53132 -a
-proxy -p53131 -a
+users $LOGIN:CL:$PASS
+allow $LOGIN
+proxy -p$HTTP_PORT -a -i0.0.0.0 -e0.0.0.0
+socks -p$SOCKS_PORT -i0.0.0.0 -e0.0.0.0
 EOF
     sudo chown $PROXY_USER:$PROXY_GROUP $PROXY_CFG
     sudo chmod 640 $PROXY_CFG
 
     echo -e "${CYAN}[*] Создание systemd unit...${NC}"
-    sudo tee $PROXY_SERVICE >/dev/null <<EOF
+    cat <<EOF | sudo tee /etc/systemd/system/3proxy.service > /dev/null
 [Unit]
 Description=3Proxy Server
 After=network.target
@@ -77,46 +90,50 @@ User=$PROXY_USER
 Group=$PROXY_GROUP
 ExecStart=$PROXY_BIN $PROXY_CFG
 Restart=always
-RestartSec=10
+LimitNOFILE=4096
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-    echo -e "${CYAN}[*] Перезапуск сервиса...${NC}"
     sudo systemctl daemon-reload
-    sudo systemctl enable 3proxy
+    sudo systemctl enable 3proxy --now
     sudo systemctl restart 3proxy
 
     echo -e "${GREEN}[+] Прокси установлен и запущен.${NC}"
-    echo -e "${YELLOW}Логин: user   Пароль: P@ssv0rd${NC}"
-    echo -e "${YELLOW}SOCKS5 порт: 53132   HTTP порт: 53131${NC}"
-    echo -e "${YELLOW}Конфиг: $PROXY_CFG${NC}"
+    echo "Логин: $LOGIN   Пароль: $PASS"
+    echo "SOCKS5 порт: $SOCKS_PORT   HTTP порт: $HTTP_PORT"
+    echo "Конфиг: $PROXY_CFG"
+    pause
 }
 
-check_status() {
-    echo -e "${CYAN}--- STATUS 3proxy ---${NC}"
+function check_proxy_status() {
+    print_logo
+    echo -e "${CYAN}[*] Статус сервиса 3proxy:${NC}"
     sudo systemctl status 3proxy --no-pager
-    echo -e "${CYAN}--- LAST 20 LOG LINES ---${NC}"
-    sudo tail -n 20 $PROXY_LOG 2>/dev/null || echo -e "${RED}Нет логов / No logs${NC}"
+    echo ""
+    echo -e "${CYAN}[*] Последние 20 строк лога:${NC}"
+    sudo journalctl -u 3proxy -n 20 --no-pager
+    pause
 }
 
-main_menu() {
+function main_menu() {
     while true; do
-        show_header
-        echo -e "${CYAN}1. Установить прокси на сервер"
-        echo -e "2. Проверить статус прокси"
-        echo -e "3. Назад${NC}"
-        echo -ne "${YELLOW}Выберите пункт: ${NC}"
+        clear
+        print_logo
+        echo ""
+        echo "1. Установить прокси на сервер"
+        echo "2. Проверить статус прокси"
+        echo "3. Назад"
+        echo -n "Выберите пункт: "
         read choice
+
         case $choice in
             1) install_proxy ;;
-            2) check_status ;;
-            3) break ;;
-            *) echo -e "${RED}Неверный выбор${NC}";;
+            2) check_proxy_status ;;
+            3) exit 0 ;;
+            *) echo "Некорректный выбор."; sleep 1 ;;
         esac
-        echo -e "${YELLOW}Нажмите Enter для продолжения...${NC}"
-        read
     done
 }
 
