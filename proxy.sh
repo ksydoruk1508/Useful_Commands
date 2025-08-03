@@ -42,10 +42,10 @@ install_proxy() {
     if [ ! -f $PROXY_BIN ]; then
         echo -e "${CYAN}[*] Скачивание и установка 3proxy...${NC}"
         wget -qO- https://github.com/z3APA3A/3proxy/archive/refs/tags/0.9.3.tar.gz | tar xz
-        cd 3proxy-0.9.3
+        cd 3proxy-0.9.3/src
         make -f Makefile.Linux
-        sudo cp src/3proxy $PROXY_BIN
-        cd ..
+        sudo cp 3proxy $PROXY_BIN
+        cd ../..
         rm -rf 3proxy-0.9.3
     fi
     sudo chown $PROXY_USER:$PROXY_GROUP $PROXY_BIN
