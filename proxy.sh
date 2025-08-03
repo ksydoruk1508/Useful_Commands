@@ -39,18 +39,18 @@ function install_proxy() {
         echo -e "${CYAN}[*] Скачивание и установка 3proxy...${NC}"
         wget -qO- https://github.com/z3APA3A/3proxy/archive/refs/tags/0.9.3.tar.gz | tar xz
         cd 3proxy-0.9.3
-        ln -s Makefile.Linux Makefile.var
-        cd src
         make -f Makefile.Linux
-        if [ ! -f 3proxy ]; then
+        if [ ! -f src/3proxy ]; then
             echo -e "${NC}[!] Ошибка сборки 3proxy!${NC}"
             pause
+            cd ..
+            rm -rf 3proxy-0.9.3
             return
         fi
-        sudo cp 3proxy $PROXY_BIN
+        sudo cp src/3proxy $PROXY_BIN
         sudo chown $PROXY_USER:$PROXY_GROUP $PROXY_BIN
         sudo chmod 755 $PROXY_BIN
-        cd ../..
+        cd ..
         rm -rf 3proxy-0.9.3
     fi
 
