@@ -17,12 +17,7 @@ NC='\033[0m' # No Color
 function print_logo() {
 cat << "EOF"
  ____  ____                                      
-|  _ \|  _ \ _ __ _____  ___   _                 
-| |_) | |_) | '__/ _ \ \/ / | | |                
-|  __/|  __/| | | (_) >  <| |_| |                
-|_|   |_|   |_|  \___/_/\_\\__,_|               
 
-        3proxy Quick Installer by c6zr7
 EOF
 }
 
