@@ -12,6 +12,23 @@ if [[ $EUID -ne 0 ]]; then
    exit 1
 fi
 
+# Получение IP адреса сервера
+IP=$(hostname -I | awk '{print $1}')
+if [ -z "$IP" ]; then
+    IP="127.0.0.1"
+fi
+
+# Параметры прокси
+PORT="53131"
+USER="user"
+PASS="P@ssv0rd"
+
+echo "Настройка прокси с параметрами:"
+echo "IP: $IP"
+echo "Port: $PORT"
+echo "User: $USER"
+echo "Password: $PASS"
+
 # Обновление системы
 echo "Обновление системы..."
 apt update && apt upgrade -y
@@ -43,16 +60,16 @@ mkdir -p /etc/3proxy
 echo "Создание пользователя 3proxy..."
 useradd -r -s /bin/false proxy3
 
-# Создание конфигурационного файла
+# Создание конфигурационного файла с заданными параметрами
 echo "Создание конфигурационного файла..."
 cat > /etc/3proxy/3proxy.cfg << EOF
 # Конфигурация 3proxy
 nscache 65536
 daemon
-users proxy3:CL:$(openssl rand -base64 12)
+users $USER:CL:$PASS
 auth strong
-socks -p1080 -t -a
-http -p3128 -t -a
+socks -p$PORT -t -a
+http -p$PORT -t -a
 EOF
 
 # Создание systemd сервиса
@@ -85,17 +102,16 @@ systemctl start 3proxy
 
 # Открытие портов в фаерволе
 echo "Настройка фаервола..."
-ufw allow 1080/tcp
-ufw allow 3128/tcp
+ufw allow $PORT/tcp
 
 # Вывод информации о настройке
 echo ""
 echo "=== Настройка завершена ==="
 echo "Параметры подключения:"
-echo "SOCKS5: port 1080"
-echo "HTTP: port 3128"
-echo "Пользователь: proxy3"
-echo "Пароль: будет сгенерирован автоматически"
+echo "IP: $IP"
+echo "Port: $PORT"
+echo "User: $USER"
+echo "Password: $PASS"
 echo ""
 echo "Для проверки статуса сервиса:"
 echo "systemctl status 3proxy"
@@ -103,10 +119,4 @@ echo ""
 echo "Для просмотра логов:"
 echo "journalctl -u 3proxy -f"
 echo ""
-echo "Для изменения пароля:"
-echo "echo 'proxy3:CL:НОВЫЙ_ПАРОЛЬ' > /etc/3proxy/3proxy.cfg && systemctl restart 3proxy"
-
-# Показать текущий пароль
-echo ""
-echo "Текущий пароль (в формате CL):"
-grep "proxy3:CL:" /etc/3proxy/3proxy.cfg | cut -d':' -f3
+echo "Для изменения параметров edit /etc/3proxy/3proxy.cfg and systemctl restart 3proxy"
