@@ -803,6 +803,36 @@ function install_desktop {
     fi
 }
 
+function proxy_menu {
+    while true; do
+        echo -e "${YELLOW}------ МЕНЮ ПРОКСИ / PROXY MENU ------${NC}"
+        echo -e "${CYAN}1. Установить/переустановить 3Proxy на сервер${NC}"
+        echo -e "${CYAN}2. Проверить статус 3Proxy${NC}"
+        echo -e "${CYAN}3. Назад${NC}"
+        echo -en "${YELLOW}Введите номер действия / Enter choice: ${NC}"
+        read proxy_choice
+        case $proxy_choice in
+            1)
+                echo -e "${BLUE}Запускается установка/переустановка 3Proxy...${NC}"
+                curl -s https://raw.githubusercontent.com/ksydoruk1508/Useful_Commands/main/proxy.sh -o proxy_setup.sh && chmod +x proxy_setup.sh && ./proxy_setup.sh
+                echo -e "${GREEN}Установка завершена (если не было ошибок).${NC}"
+                ;;
+            2)
+                echo -e "${BLUE}Проверка статуса 3Proxy...${NC}"
+                sudo systemctl status 3proxy --no-pager
+                echo -e "${YELLOW}Для подробного лога используйте: journalctl -u 3proxy -e -n 30${NC}"
+                ;;
+            3)
+                break
+                ;;
+            *)
+                echo -e "${RED}Неверный выбор, попробуйте снова / Invalid choice, try again.${NC}"
+                ;;
+        esac
+        echo -e "${YELLOW}Нажмите Enter для возврата в меню прокси...${NC}"; read
+    done
+}
+
 # Главное меню / Main menu
 function main_menu {
     while true; do
@@ -820,6 +850,7 @@ function main_menu {
         echo -e "${CYAN}11. Установка необходимого ПО / Install required software${NC}"
         echo -e "${CYAN}12. Поиск файлов и папок / Search files and directories${NC}"
         echo -e "${CYAN}13. Установка рабочего стола / Install desktop environment${NC}"
+        echo -e "${CYAN}14. Управление прокси (3Proxy) / Proxy management${NC}"
         echo -e "${CYAN}0. Выход / Exit${NC}"
         echo -e "${YELLOW}Введите номер действия / Enter choice:${NC} "
         read choice
@@ -837,6 +868,7 @@ function main_menu {
             11) install_software ;;
             12) search_utils ;;
             13) install_desktop ;;
+            14) proxy_menu ;;
             0) break ;;
             *) echo -e "${RED}Неверный выбор, попробуйте снова / Invalid choice, try again.${NC}" ;;
         esac
