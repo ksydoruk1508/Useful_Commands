@@ -14,13 +14,6 @@ CYAN='\033[0;36m'
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
 
-function print_logo() {
-cat << "EOF"
- ____  ____                                      
-
-EOF
-}
-
 function pause() {
     read -p "Нажмите Enter для продолжения..."
 }
@@ -38,7 +31,6 @@ function create_user_and_dirs() {
 }
 
 function install_proxy() {
-    print_logo
     echo -e "${CYAN}Запускается установка/переустановка 3Proxy...${NC}"
 
     create_user_and_dirs
@@ -47,11 +39,18 @@ function install_proxy() {
         echo -e "${CYAN}[*] Скачивание и установка 3proxy...${NC}"
         wget -qO- https://github.com/z3APA3A/3proxy/archive/refs/tags/0.9.3.tar.gz | tar xz
         cd 3proxy-0.9.3
-        make -C src
-        sudo cp src/3proxy $PROXY_BIN
+        ln -s Makefile.Linux Makefile.var
+        cd src
+        make -f Makefile.Linux
+        if [ ! -f 3proxy ]; then
+            echo -e "${NC}[!] Ошибка сборки 3proxy!${NC}"
+            pause
+            return
+        fi
+        sudo cp 3proxy $PROXY_BIN
         sudo chown $PROXY_USER:$PROXY_GROUP $PROXY_BIN
         sudo chmod 755 $PROXY_BIN
-        cd ..
+        cd ../..
         rm -rf 3proxy-0.9.3
     fi
 
@@ -102,7 +101,6 @@ EOF
 }
 
 function check_proxy_status() {
-    print_logo
     echo -e "${CYAN}[*] Статус сервиса 3proxy:${NC}"
     sudo systemctl status 3proxy --no-pager
     echo ""
@@ -114,7 +112,6 @@ function check_proxy_status() {
 function main_menu() {
     while true; do
         clear
-        print_logo
         echo ""
         echo "1. Установить прокси на сервер"
         echo "2. Проверить статус прокси"
