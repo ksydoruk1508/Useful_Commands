@@ -4,7 +4,7 @@
 
 set -e
 
-echo "=== Настройка прокси-сервера 3proxy 3 ==="
+echo "=== Настройка прокси-сервера 3proxy 4==="
 
 # Проверка прав доступа
 if [[ $EUID -ne 0 ]]; then
@@ -44,9 +44,13 @@ wget https://github.com/z3APA3A/3proxy/archive/refs/tags/0.9.3.zip
 unzip 0.9.3.zip
 cd 3proxy-0.9.3
 
+# Проверяем наличие Makefile.Linux
+echo "Проверка файлов Makefile..."
+ls -la Makefile*
+
 # Компиляция с правильным подходом
 echo "Компиляция 3proxy..."
-# Компилируем в директории src
+# Переходим в директорию src и компилируем
 cd src
 make -f Makefile.Linux
 
