@@ -18,7 +18,7 @@ apt install -y build-essential libssl-dev unzip wget
 echo "Загрузка и сборка 3proxy..."
 cd /tmp
 rm -rf 3proxy-0.9.3 3proxy.zip
-wget -q https://github.com/3proxy/3proxy/archive/refs/tags/0.9.3.zip -O 3proxy.zip
+wget -q https://github.com/3proxy/3proxy/archive/refs/tags/0.9.3.zip   -O 3proxy.zip
 unzip -q 3proxy.zip
 cd 3proxy-0.9.3
 make -f Makefile.Linux
@@ -38,12 +38,12 @@ if ! id "proxy3" &>/dev/null; then
     useradd -r -s /bin/false proxy3
 fi
 
-# === Создаем директорию и конфиг ===
+# === Создаем директорию и конфиг (БЕЗ daemon) ===
 mkdir -p /etc/3proxy
 
 cat >/etc/3proxy/3proxy.cfg <<EOF
 nscache 65536
-daemon
+# daemon  # УДАЛЕНО: systemd управляет процессом
 users $PROXY_USER:CL:$PROXY_PASS
 auth strong
 socks -p$SOCKS_PORT -a
