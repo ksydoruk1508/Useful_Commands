@@ -1,131 +1,92 @@
 #!/bin/bash
 
-PROXY_USER="proxy3"
-PROXY_GROUP="proxy3"
-PROXY_DIR="/etc/3proxy"
-PROXY_CFG="$PROXY_DIR/3proxy.cfg"
-PROXY_BIN="/usr/local/bin/3proxy"
+set -e
+
+# === Настройки ===
+PROXY_PORT=53131
 SOCKS_PORT=53132
-HTTP_PORT=53131
-LOGIN="user"
-PASS="P@ssv0rd"
+PROXY_USER="user"
+PROXY_PASS="P@ssv0rd"
 
-CYAN='\033[0;36m'
-GREEN='\033[0;32m'
-NC='\033[0m' # No Color
+# === Обновление системы и установка зависимостей ===
+echo "Обновление системы..."
+apt update -y
+apt upgrade -y
+apt install -y build-essential libssl-dev unzip wget
 
-function pause() {
-    read -p "Нажмите Enter для продолжения..."
-}
+# === Скачиваем и собираем 3proxy ===
+echo "Загрузка и сборка 3proxy..."
+cd /tmp
+rm -rf 3proxy-0.9.3 3proxy.zip
+wget -q https://github.com/3proxy/3proxy/archive/refs/tags/0.9.3.zip -O 3proxy.zip
+unzip -q 3proxy.zip
+cd 3proxy-0.9.3
+make -f Makefile.Linux
 
-function create_user_and_dirs() {
-    echo -e "${CYAN}[*] Проверка пользователя $PROXY_USER...${NC}"
-    if ! id $PROXY_USER &>/dev/null; then
-        sudo useradd -r -s /usr/sbin/nologin $PROXY_USER
-    fi
+# === Останавливаем 3proxy, если работает ===
+echo "Останавливаем сервис 3proxy (если запущен)..."
+systemctl stop 3proxy 2>/dev/null || true
 
-    echo -e "${CYAN}[*] Создание директорий и выдача прав...${NC}"
-    sudo mkdir -p $PROXY_DIR
-    sudo chown -R $PROXY_USER:$PROXY_GROUP $PROXY_DIR
-    sudo chmod 750 $PROXY_DIR
-}
+# === Копируем бинарник ===
+echo "Копируем бинарник 3proxy..."
+cp -f ./src/../bin/3proxy /usr/local/bin/3proxy
+chmod +x /usr/local/bin/3proxy
 
-function install_proxy() {
-    echo -e "${CYAN}Запускается установка/переустановка 3Proxy...${NC}"
+# === Создаем пользователя, если не существует ===
+if ! id "proxy3" &>/dev/null; then
+    echo "Создаем пользователя proxy3..."
+    useradd -r -s /bin/false proxy3
+fi
 
-    create_user_and_dirs
+# === Создаем директорию и конфиг ===
+mkdir -p /etc/3proxy
 
-    if [ ! -f $PROXY_BIN ]; then
-        echo -e "${CYAN}[*] Скачивание и установка 3proxy...${NC}"
-        wget -qO- https://github.com/z3APA3A/3proxy/archive/refs/tags/0.9.3.tar.gz | tar xz
-        cd 3proxy-0.9.3
-        make -f Makefile.Linux
-        if [ ! -f src/3proxy ]; then
-            echo -e "${NC}[!] Ошибка сборки 3proxy!${NC}"
-            pause
-            cd ..
-            rm -rf 3proxy-0.9.3
-            return
-        fi
-        sudo cp src/3proxy $PROXY_BIN
-        sudo chown $PROXY_USER:$PROXY_GROUP $PROXY_BIN
-        sudo chmod 755 $PROXY_BIN
-        cd ..
-        rm -rf 3proxy-0.9.3
-    fi
-
-    echo -e "${CYAN}[*] Создание конфига 3proxy...${NC}"
-    cat <<EOF | sudo tee $PROXY_CFG > /dev/null
-daemon
-maxconn 2000
+cat >/etc/3proxy/3proxy.cfg <<EOF
 nscache 65536
-timeouts 1 5 30 60 180 1800 15 60
-setgid $PROXY_GROUP
-setuid $PROXY_USER
+daemon
+users $PROXY_USER:CL:$PROXY_PASS
 auth strong
-users $LOGIN:CL:$PASS
-allow $LOGIN
-proxy -p$HTTP_PORT -a -i0.0.0.0 -e0.0.0.0
-socks -p$SOCKS_PORT -i0.0.0.0 -e0.0.0.0
+socks -p$SOCKS_PORT -a
+proxy -p$PROXY_PORT -a
 EOF
-    sudo chown $PROXY_USER:$PROXY_GROUP $PROXY_CFG
-    sudo chmod 640 $PROXY_CFG
 
-    echo -e "${CYAN}[*] Создание systemd unit...${NC}"
-    cat <<EOF | sudo tee /etc/systemd/system/3proxy.service > /dev/null
+# === Создаем systemd unit файл ===
+cat >/etc/systemd/system/3proxy.service <<EOF
 [Unit]
 Description=3Proxy Server
 After=network.target
 
 [Service]
 Type=simple
-User=$PROXY_USER
-Group=$PROXY_GROUP
-ExecStart=$PROXY_BIN $PROXY_CFG
+User=proxy3
+Group=proxy3
+ExecStart=/usr/local/bin/3proxy /etc/3proxy/3proxy.cfg
 Restart=always
-LimitNOFILE=4096
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-    sudo systemctl daemon-reload
-    sudo systemctl enable 3proxy --now
-    sudo systemctl restart 3proxy
+# === Настраиваем файрвол (UFW) ===
+if command -v ufw &>/dev/null; then
+    ufw allow $PROXY_PORT/tcp || true
+    ufw allow $SOCKS_PORT/tcp || true
+fi
 
-    echo -e "${GREEN}[+] Прокси установлен и запущен.${NC}"
-    echo "Логин: $LOGIN   Пароль: $PASS"
-    echo "SOCKS5 порт: $SOCKS_PORT   HTTP порт: $HTTP_PORT"
-    echo "Конфиг: $PROXY_CFG"
-    pause
-}
+# === Перезапускаем systemd и запускаем сервис ===
+echo "Перезапуск systemd и запуск 3proxy..."
+systemctl daemon-reload
+systemctl enable 3proxy
+systemctl restart 3proxy
 
-function check_proxy_status() {
-    echo -e "${CYAN}[*] Статус сервиса 3proxy:${NC}"
-    sudo systemctl status 3proxy --no-pager
-    echo ""
-    echo -e "${CYAN}[*] Последние 20 строк лога:${NC}"
-    sudo journalctl -u 3proxy -n 20 --no-pager
-    pause
-}
-
-function main_menu() {
-    while true; do
-        clear
-        echo ""
-        echo "1. Установить прокси на сервер"
-        echo "2. Проверить статус прокси"
-        echo "3. Назад"
-        echo -n "Выберите пункт: "
-        read choice
-
-        case $choice in
-            1) install_proxy ;;
-            2) check_proxy_status ;;
-            3) exit 0 ;;
-            *) echo "Некорректный выбор."; sleep 1 ;;
-        esac
-    done
-}
-
-main_menu
+echo "=== Установка и запуск 3proxy завершены ==="
+echo "Параметры подключения:"
+echo "IP: $(curl -s ifconfig.me)"
+echo "SOCKS5 порт: $SOCKS_PORT"
+echo "HTTP порт: $PROXY_PORT"
+echo "User: $PROXY_USER"
+echo "Password: $PROXY_PASS"
+echo
+echo "Проверка статуса: systemctl status 3proxy"
+echo "Логи: journalctl -u 3proxy -f"
