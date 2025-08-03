@@ -4,7 +4,7 @@
 
 set -e
 
-echo "=== Настройка прокси-сервера 3proxy 8==="
+echo "=== Настройка прокси-сервера 3proxy 0.9.3 =1=="
 
 # Проверка прав доступа
 if [[ $EUID -ne 0 ]]; then
@@ -33,38 +33,26 @@ echo "Password: $PASS"
 echo "Обновление системы..."
 apt update && apt upgrade -y
 
-# Установка необходимых пакетов и зависимостей для сборки 3proxy
+# Установка необходимых пакетов и библиотек для сборки
 echo "Установка зависимостей..."
-apt install -y build-essential wget unzip libssl-dev libpthread-stubs0-dev libc6-dev
+apt install -y build-essential wget unzip libc6-dev libssl-dev libpthread-stubs0-dev
 
-# Загрузка и компиляция 3proxy
-echo "Загрузка и компиляция 3proxy..."
+# Загрузка и распаковка 3proxy
+echo "Загрузка и распаковка 3proxy..."
 cd /tmp
-wget https://github.com/z3APA3A/3proxy/archive/refs/tags/0.9.3.zip -O 3proxy.zip
-unzip -o 3proxy.zip
-cd 3proxy-0.9.3
+rm -rf 3proxy-0.9.3 3proxy.zip
+wget -O 3proxy.zip https://github.com/3proxy/3proxy/archive/refs/tags/0.9.3.zip
+unzip 3proxy.zip
 
-# Компиляция с правильным подходом
+# Компиляция 3proxy
 echo "Компиляция 3proxy..."
-if [ -f "Makefile.Linux" ]; then
-    echo "Файл Makefile.Linux найден в корневой директории"
-    make -f Makefile.Linux
-else
-    echo "Makefile.Linux не найден в корневой директории"
-    exit 1
-fi
+cd 3proxy-0.9.3/src
+cp ../Makefile.Linux Makefile.var
+make -f ../Makefile.Linux
 
-# Проверка наличия исполняемого файла в правильной директории
-if [ ! -f src/3proxy ]; then
-    echo "Ошибка: не удалось скомпилировать 3proxy"
-    echo "Содержимое директории src:"
-    ls -la src/
-    exit 1
-fi
-
-# Установка в систему
+# Установка бинарника
 echo "Установка 3proxy..."
-cp src/3proxy /usr/local/bin/
+cp ../bin/3proxy /usr/local/bin/
 chmod +x /usr/local/bin/3proxy
 
 # Создание директории конфигурации
@@ -73,9 +61,9 @@ mkdir -p /etc/3proxy
 
 # Создание пользователя для 3proxy
 echo "Создание пользователя 3proxy..."
-useradd -r -s /bin/false proxy3 || true
+id proxy3 &>/dev/null || useradd -r -s /bin/false proxy3
 
-# Создание конфигурационного файла с заданными параметрами
+# Создание конфигурационного файла
 echo "Создание конфигурационного файла..."
 cat > /etc/3proxy/3proxy.cfg << EOF
 # Конфигурация 3proxy
@@ -95,7 +83,7 @@ Description=3Proxy Server
 After=network.target
 
 [Service]
-Type=forking
+Type=simple
 User=proxy3
 Group=proxy3
 ExecStart=/usr/local/bin/3proxy /etc/3proxy/3proxy.cfg
@@ -113,7 +101,7 @@ systemctl daemon-reload
 # Включение и запуск сервиса
 echo "Включение и запуск сервиса..."
 systemctl enable 3proxy
-systemctl start 3proxy
+systemctl restart 3proxy
 
 # Открытие портов в фаерволе
 echo "Настройка фаервола..."
@@ -134,4 +122,4 @@ echo ""
 echo "Для просмотра логов:"
 echo "journalctl -u 3proxy -f"
 echo ""
-echo "Для изменения параметров редактируйте /etc/3proxy/3proxy.cfg и перезапустите systemctl restart 3proxy"
+echo "Для изменения параметров — edit /etc/3proxy/3proxy.cfg и перезапустите сервис командой: systemctl restart 3proxy"
